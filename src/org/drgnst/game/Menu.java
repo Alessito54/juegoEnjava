@@ -63,42 +63,39 @@ public class Menu
 
     private void scaleAndRenderMenu(Bitmap screen, Bitmap menu)
     {
-        // Calcular factor de escala
+        // Llenar pantalla con fondo negro primero
+        for (int i = 0; i < screen.pixels.length; i++)
+        {
+            screen.pixels[i] = 0x000000;
+        }
+
+        // Calcular escala para mantener aspecto y llenar la pantalla
         float scaleX = (float) screen.width / menu.width;
         float scaleY = (float) screen.height / menu.height;
-        float scale = Math.min(scaleX, scaleY);
+        float scale = Math.max(scaleX, scaleY);
 
-        // Centrar la imagen escalada
+        // Dimensiones escaladas
         int scaledW = (int) (menu.width * scale);
         int scaledH = (int) (menu.height * scale);
         int offsetX = (screen.width - scaledW) / 2;
         int offsetY = (screen.height - scaledH) / 2;
 
-        // Renderizar con escala
-        for (int sy = 0; sy < menu.height; sy++)
+        // Renderizar con muestreo simple sin filtro de alpha
+        for (int py = 0; py < screen.height; py++)
         {
-            for (int sx = 0; sx < menu.width; sx++)
+            for (int px = 0; px < screen.width; px++)
             {
-                int color = menu.pixels[sx + sy * menu.width];
-                int alpha = (color >>> 24) & 0xff;
+                // Mapear píxel de pantalla a píxel de fuente
+                int srcX = (int) ((px - offsetX) / scale);
+                int srcY = (int) ((py - offsetY) / scale);
 
-                if (alpha < 128)
+                // Verificar límites
+                if (srcX < 0 || srcX >= menu.width || srcY < 0 || srcY >= menu.height)
                     continue;
 
-                int intScale = (int) scale;
-                for (int yy = 0; yy < intScale; yy++)
-                {
-                    for (int xx = 0; xx < intScale; xx++)
-                    {
-                        int px = offsetX + sx * intScale + xx;
-                        int py = offsetY + sy * intScale + yy;
-
-                        if (px >= 0 && px < screen.width && py >= 0 && py < screen.height)
-                        {
-                            screen.pixels[px + py * screen.width] = color & 0xffffff;
-                        }
-                    }
-                }
+                int color = menu.pixels[srcX + srcY * menu.width];
+                // Mostrar el color directamente sin filtrar por alpha
+                screen.pixels[px + py * screen.width] = color & 0xffffff;
             }
         }
     }
