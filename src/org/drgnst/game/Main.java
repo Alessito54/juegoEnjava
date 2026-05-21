@@ -189,7 +189,7 @@ public class Main extends Canvas implements Runnable
             }
             spaceWasDown = inputHandler.keys[java.awt.event.KeyEvent.VK_SPACE];
             
-            // Detectar clics en botones del menú
+            // Detectar clics en botón START del menú
             if (inputHandler.mousePressed)
             {
                 int buttonClicked = menu.checkClick(inputHandler.mouseX, inputHandler.mouseY, WIDTH * SCALE, HEIGHT * SCALE);
@@ -197,11 +197,6 @@ public class Main extends Canvas implements Runnable
                 if (buttonClicked == Menu.BUTTON_START)
                 {
                     menuActive = false;
-                    inputHandler.mousePressed = false;
-                }
-                else if (buttonClicked == Menu.BUTTON_EXIT)
-                {
-                    isRunning = false;
                     inputHandler.mousePressed = false;
                 }
             }

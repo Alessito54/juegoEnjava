@@ -14,25 +14,41 @@ import org.drgnst.game.gfx.Bitmap;
 public class Menu
 {
     private Bitmap menuImage;
-    private static final int BUTTON_START_X = 160;
-    private static final int BUTTON_START_Y = 250;
-    private static final int BUTTON_START_W = 80;
-    private static final int BUTTON_START_H = 40;
+    private Bitmap startButtonImage;
     
-    private static final int BUTTON_EXIT_X = 260;
-    private static final int BUTTON_EXIT_Y = 250;
-    private static final int BUTTON_EXIT_W = 60;
-    private static final int BUTTON_EXIT_H = 40;
+    // Posición del botón en esquina inferior derecha
+    private static final int BUTTON_START_X = 380;
+    private static final int BUTTON_START_Y = 300;
     
-    private int lastClickX = -1;
-    private int lastClickY = -1;
     public static final int BUTTON_NONE = 0;
     public static final int BUTTON_START = 1;
-    public static final int BUTTON_EXIT = 2;
 
     public Menu()
     {
         loadMenuImage();
+        loadStartButtonImage();
+    }
+
+    private void loadStartButtonImage()
+    {
+        try
+        {
+            BufferedImage image = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/botonInicio.png"));
+            if (image == null)
+            {
+                System.err.println("✗ No se pudo cargar botonInicio.png");
+                return;
+            }
+
+            startButtonImage = new Bitmap(image.getWidth(), image.getHeight());
+            image.getRGB(0, 0, startButtonImage.width, startButtonImage.height, startButtonImage.pixels, 0, startButtonImage.width);
+            System.out.println("✓ Botón inicio cargado: " + startButtonImage.width + "x" + startButtonImage.height);
+        }
+        catch (IOException e)
+        {
+            System.err.println("✗ Error cargando botonInicio.png");
+            e.printStackTrace();
+        }
     }
 
     private void loadMenuImage()
@@ -72,85 +88,52 @@ public class Menu
         // Escalar la imagen del menu para que ocupe toda la pantalla
         scaleAndRenderMenu(screen, menuImage);
 
-        // Dibujar botones
-        drawButton(screen, BUTTON_START_X, BUTTON_START_Y, BUTTON_START_W, BUTTON_START_H, "START", 0x28be46);
-        drawButton(screen, BUTTON_EXIT_X, BUTTON_EXIT_Y, BUTTON_EXIT_W, BUTTON_EXIT_H, "EXIT", 0xdc3c3c);
+        // Renderizar botón de inicio en esquina inferior derecha
+        if (startButtonImage != null)
+        {
+            renderStartButton(screen);
+        }
+    }
+    
+    private void renderStartButton(Bitmap screen)
+    {
+        Bitmap btn = startButtonImage;
+        int bx = BUTTON_START_X;
+        int by = BUTTON_START_Y;
+        
+        // Renderizar botón sin escala (usar tamaño original)
+        for (int y = 0; y < btn.height && by + y < screen.height; y++)
+        {
+            for (int x = 0; x < btn.width && bx + x < screen.width; x++)
+            {
+                int color = btn.pixels[x + y * btn.width];
+                int alpha = (color >>> 24) & 0xff;
+                
+                if (alpha >= 128)  // Solo dibujar si no es transparente
+                {
+                    screen.pixels[(bx + x) + (by + y) * screen.width] = color & 0xffffff;
+                }
+            }
+        }
     }
     
     public int checkClick(int mouseX, int mouseY, int screenWidth, int screenHeight)
     {
-        // Escalar coordenadas del mouse a resolución del menú
-        float scaleX = (float) BUTTON_START_W / screenWidth;
-        float scaleY = (float) BUTTON_START_H / screenHeight;
+        if (startButtonImage == null)
+            return BUTTON_NONE;
         
-        int menuMouseX = (int) (mouseX * 3);  // MENU_WIDTH = WIDTH * 3
-        int menuMouseY = (int) (mouseY * 3);  // MENU_HEIGHT = HEIGHT * 3
+        // Escalar coordenadas del mouse a resolución del menú (480x360)
+        int menuMouseX = (int) (mouseX * 480 / screenWidth);
+        int menuMouseY = (int) (mouseY * 360 / screenHeight);
         
-        // Verificar botones
-        if (menuMouseX >= BUTTON_START_X && menuMouseX < BUTTON_START_X + BUTTON_START_W &&
-            menuMouseY >= BUTTON_START_Y && menuMouseY < BUTTON_START_Y + BUTTON_START_H)
+        // Verificar si está dentro del área del botón de inicio
+        if (menuMouseX >= BUTTON_START_X && menuMouseX < BUTTON_START_X + startButtonImage.width &&
+            menuMouseY >= BUTTON_START_Y && menuMouseY < BUTTON_START_Y + startButtonImage.height)
         {
             return BUTTON_START;
         }
         
-        if (menuMouseX >= BUTTON_EXIT_X && menuMouseX < BUTTON_EXIT_X + BUTTON_EXIT_W &&
-            menuMouseY >= BUTTON_EXIT_Y && menuMouseY < BUTTON_EXIT_Y + BUTTON_EXIT_H)
-        {
-            return BUTTON_EXIT;
-        }
-        
         return BUTTON_NONE;
-    }
-    
-    private void drawButton(Bitmap screen, int x, int y, int w, int h, String label, int color)
-    {
-        // Dibujar fondo del botón
-        fillRect(screen, x, y, w, h, color);
-        
-        // Dibujar borde
-        drawRect(screen, x - 1, y - 1, w + 2, h + 2, 0xffffff);
-    }
-    
-    private void fillRect(Bitmap screen, int x, int y, int w, int h, int color)
-    {
-        for (int yy = y; yy < y + h; yy++)
-        {
-            if (yy < 0 || yy >= screen.height)
-                continue;
-            for (int xx = x; xx < x + w; xx++)
-            {
-                if (xx < 0 || xx >= screen.width)
-                    continue;
-                screen.pixels[xx + yy * screen.width] = color & 0xffffff;
-            }
-        }
-    }
-    
-    private void drawRect(Bitmap screen, int x, int y, int w, int h, int color)
-    {
-        // Top and bottom
-        for (int xx = x; xx < x + w; xx++)
-        {
-            if (xx >= 0 && xx < screen.width)
-            {
-                if (y >= 0 && y < screen.height)
-                    screen.pixels[xx + y * screen.width] = color & 0xffffff;
-                if (y + h - 1 >= 0 && y + h - 1 < screen.height)
-                    screen.pixels[xx + (y + h - 1) * screen.width] = color & 0xffffff;
-            }
-        }
-        
-        // Left and right
-        for (int yy = y; yy < y + h; yy++)
-        {
-            if (yy >= 0 && yy < screen.height)
-            {
-                if (x >= 0 && x < screen.width)
-                    screen.pixels[x + yy * screen.width] = color & 0xffffff;
-                if (x + w - 1 >= 0 && x + w - 1 < screen.width)
-                    screen.pixels[x + w - 1 + yy * screen.width] = color & 0xffffff;
-            }
-        }
     }
 
     private void scaleAndRenderMenu(Bitmap screen, Bitmap menu)
