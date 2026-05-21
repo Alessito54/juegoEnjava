@@ -27,6 +27,8 @@ public class Screen extends Bitmap
 
     public void render(Game game)
     {
+        if (game == null)
+            return;
         clear();
         perspectiveVision.render(game);
         perspectiveVision.renderFog(3);

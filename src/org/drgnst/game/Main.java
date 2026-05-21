@@ -30,6 +30,9 @@ public class Main extends Canvas implements Runnable
     private Game game;
     private Screen screen;
     private InputHandler inputHandler;
+    private Menu menu;
+    private boolean menuActive;
+    private boolean spaceWasDown;
 
     public Main()
     {
@@ -65,6 +68,9 @@ public class Main extends Canvas implements Runnable
     {
         game = new Game();
         screen = new Screen(WIDTH, HEIGHT);
+        menu = new Menu();
+        menuActive = true;
+        spaceWasDown = false;
     }
 
     public void run()
@@ -125,7 +131,14 @@ public class Main extends Canvas implements Runnable
             pixels[i] = 0;
         }
 
-        screen.render(game);
+        if (menuActive)
+        {
+            menu.render(screen);
+        }
+        else
+        {
+            screen.render(game);
+        }
 
         for (int i = 0; i < pixels.length; i++)
         {
@@ -140,7 +153,20 @@ public class Main extends Canvas implements Runnable
 
     public void update()
     {
-        game.update(inputHandler.keys);
+        if (menuActive)
+        {
+            // Detectar SPACE para iniciar el juego
+            if (inputHandler.keys[java.awt.event.KeyEvent.VK_SPACE] && !spaceWasDown)
+            {
+                menuActive = false;
+                spaceWasDown = true;
+            }
+            spaceWasDown = inputHandler.keys[java.awt.event.KeyEvent.VK_SPACE];
+        }
+        else
+        {
+            game.update(inputHandler.keys);
+        }
         screen.update();
     }
 
