@@ -24,6 +24,8 @@ public class Game
     private static final int SHOT_DAMAGE = 34;
     private static final double SHOT_MAX_DISTANCE = 6.0;
     private static final double SHOT_ANGLE_COS = 0.92;
+    private static final int MAX_AMMO = 5;
+    private static final int RELOAD_DURATION_FRAMES = 343; // ~5.72s, igual al audio
 
     public Level level;
     public Player player;
@@ -41,6 +43,8 @@ public class Game
     private Bitmap jumpscareImage;
     private int jumpscareTimer;
     private int firingCooldown; // Cooldown entre disparos
+    private int ammo;
+    private int reloadTimer;
 
     public Game()
     {
@@ -56,6 +60,9 @@ public class Game
         deaths = 0;
         jumpscareTimer = 0;
         firingCooldown = 0;
+        ammo = MAX_AMMO;
+        reloadTimer = 0;
+        weapon.setReloading(false);
         loadJumpscareImage();
 
         // Iniciar música de fondo
@@ -81,12 +88,27 @@ public class Game
         updateMedkits();
         updateEnemies();
 
-        if (space && !spaceWasDown && firingCooldown <= 0)
+        if (reloadTimer > 0)
+        {
+            reloadTimer--;
+            if (reloadTimer <= 0)
+            {
+                ammo = MAX_AMMO;
+                weapon.setReloading(false);
+                System.out.println("✓ Recarga completa");
+            }
+        }
+
+        if (space && !spaceWasDown && firingCooldown <= 0 && reloadTimer <= 0 && ammo > 0)
         {
             weapon.fire();
             audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/disparo.wav");
             shootEnemy();
             firingCooldown = 60; // 1 segundo de cooldown a 60 FPS
+            ammo--;
+
+            if (ammo <= 0)
+                startReload();
         }
 
         spaceWasDown = space;
@@ -150,11 +172,21 @@ public class Game
             enemySpawnTimer--;
         }
 
-        for (int i = 0; i < enemies.size(); i++)
+        for (int i = enemies.size() - 1; i >= 0; i--)
         {
             Enemy enemy = enemies.get(i);
-            enemy.update(player, level);
             enemy.updateAttackAnimation();
+
+            if (enemy.isExpired())
+            {
+                enemies.remove(i);
+                continue;
+            }
+
+            if (!enemy.isDead())
+            {
+                enemy.update(player, level);
+            }
 
             int damage = enemy.attackIfReady(player);
             if (damage > 0)
@@ -177,6 +209,9 @@ public class Game
         for (int i = 0; i < enemies.size(); i++)
         {
             Enemy enemy = enemies.get(i);
+            if (enemy.isDead())
+                continue;
+
             double dx = enemy.x - player.x;
             double dy = enemy.y - player.y;
             double dist = Math.sqrt(dx * dx + dy * dy);
@@ -207,10 +242,20 @@ public class Game
             bestTarget.takeDamage(SHOT_DAMAGE);
             if (bestTarget.isDead())
             {
-                enemies.remove(bestTarget);
                 kills++;
             }
         }
+    }
+
+    private void startReload()
+    {
+        if (reloadTimer > 0)
+            return;
+
+        reloadTimer = RELOAD_DURATION_FRAMES;
+        weapon.setReloading(true);
+        audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/recarga.wav");
+        System.out.println("↻ Recargando arma...");
     }
 
     private void spawnEnemyNearPlayer()
@@ -279,6 +324,21 @@ public class Game
     public int getDeaths()
     {
         return deaths;
+    }
+
+    public int getAmmo()
+    {
+        return ammo;
+    }
+
+    public int getMaxAmmo()
+    {
+        return MAX_AMMO;
+    }
+
+    public boolean isReloading()
+    {
+        return reloadTimer > 0;
     }
 
     public int getJumpscareTimer()

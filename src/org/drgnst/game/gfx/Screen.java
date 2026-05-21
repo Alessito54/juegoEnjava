@@ -1,6 +1,11 @@
 package org.drgnst.game.gfx;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.Random;
+
+import javax.imageio.ImageIO;
 
 import org.drgnst.game.Game;
 
@@ -13,6 +18,7 @@ public class Screen extends Bitmap
 
     public Bitmap test;
     public Bitmap3D perspectiveVision;
+    private Bitmap bulletIcon;
 
     public Screen(int width, int height)
     {
@@ -23,6 +29,7 @@ public class Screen extends Bitmap
             test.pixels[i] = r.nextInt();
 
         perspectiveVision = new Bitmap3D(width, height);
+        bulletIcon = loadBitmap("/home/alessandro/Java-3D-Rendering/image/bala.png");
     }
 
     public void render(Game game)
@@ -46,6 +53,9 @@ public class Screen extends Bitmap
 
         // Barra de vida más discreta (bottom-left)
         drawHealthBar(6, height - 12, 60, 6, game.getPlayerHealthPercent());
+
+        // Munición: 5 balas en la parte inferior
+        drawAmmoHud(game.getAmmo(), game.getMaxAmmo());
 
         // Jumpscare a pantalla completa cuando muere
         if (game.getJumpscareTimer() > 0 && game.getJumpscareImage() != null)
@@ -217,6 +227,98 @@ public class Screen extends Bitmap
                 if (xx < 0 || xx >= width)
                     continue;
                 pixels[xx + yy * width] = color & 0xffffff;
+            }
+        }
+    }
+
+    private Bitmap loadBitmap(String path)
+    {
+        try
+        {
+            BufferedImage image = ImageIO.read(new File(path));
+            if (image == null)
+                return null;
+
+            Bitmap res = new Bitmap(image.getWidth(), image.getHeight());
+            image.getRGB(0, 0, res.width, res.height, res.pixels, 0, res.width);
+            return res;
+        }
+        catch (IOException e)
+        {
+            return null;
+        }
+    }
+
+    private void drawAmmoHud(int ammo, int maxAmmo)
+    {
+        if (bulletIcon == null || maxAmmo <= 0)
+            return;
+
+        int iconW = 18;
+        int iconH = 27;
+        int spacing = 3;
+        int totalW = maxAmmo * iconW + (maxAmmo - 1) * spacing;
+        int startX = (width - totalW) / 2;
+        int y = height - iconH - 4;
+
+        for (int i = 0; i < maxAmmo; i++)
+        {
+            float opacity = i < ammo ? 1.0f : 0.25f;
+            drawBitmapScaled(bulletIcon, startX + i * (iconW + spacing), y, iconW, iconH, opacity);
+        }
+    }
+
+    private void drawBitmapScaled(Bitmap src, int ox, int oy, int targetW, int targetH, float opacity)
+    {
+        if (src == null || targetW <= 0 || targetH <= 0)
+            return;
+
+        for (int y = 0; y < targetH; y++)
+        {
+            int sy = (int) ((y / (float) targetH) * src.height);
+            if (sy < 0)
+                sy = 0;
+            if (sy >= src.height)
+                sy = src.height - 1;
+
+            for (int x = 0; x < targetW; x++)
+            {
+                int sx = (int) ((x / (float) targetW) * src.width);
+                if (sx < 0)
+                    sx = 0;
+                if (sx >= src.width)
+                    sx = src.width - 1;
+
+                int argb = src.pixels[sx + sy * src.width];
+                int alpha = (argb >>> 24) & 0xff;
+                if (alpha == 0)
+                    continue;
+
+                alpha = (int) (alpha * opacity);
+                if (alpha <= 0)
+                    continue;
+
+                int px = ox + x;
+                int py = oy + y;
+                if (px < 0 || px >= width || py < 0 || py >= height)
+                    continue;
+
+                int idx = px + py * width;
+                int dst = pixels[idx];
+
+                int dr = (dst >> 16) & 0xff;
+                int dg = (dst >> 8) & 0xff;
+                int db = dst & 0xff;
+
+                int sr = (argb >> 16) & 0xff;
+                int sg = (argb >> 8) & 0xff;
+                int sb = argb & 0xff;
+
+                int nr = (dr * (255 - alpha) + sr * alpha) / 255;
+                int ng = (dg * (255 - alpha) + sg * alpha) / 255;
+                int nb = (db * (255 - alpha) + sb * alpha) / 255;
+
+                pixels[idx] = (nr << 16) | (ng << 8) | nb;
             }
         }
     }

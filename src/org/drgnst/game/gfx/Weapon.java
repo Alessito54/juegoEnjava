@@ -13,15 +13,18 @@ public class Weapon
 {
     private final Bitmap baseSprite;
     private final Bitmap fireSprite;
+    private final Bitmap reloadSprite;
     public float bobbingX = 0;
     public float bobbingY = 0;
     private float walkPhase = 0;
     private int fireTimer = 0;
+    private boolean reloading = false;
 
     public Weapon()
     {
         baseSprite = loadSprite("/home/alessandro/Java-3D-Rendering/image/weaponBASE.png");
         fireSprite = loadSprite("/home/alessandro/Java-3D-Rendering/image/weaponDisparo.png");
+        reloadSprite = loadSprite("/home/alessandro/Java-3D-Rendering/image/recarga.png");
     }
 
     public void update(double playerX, double playerY, boolean moving)
@@ -49,9 +52,23 @@ public class Weapon
         fireTimer = 6;
     }
 
+    public void setReloading(boolean reloading)
+    {
+        this.reloading = reloading;
+        if (reloading)
+            fireTimer = 0;
+    }
+
     public void render(Bitmap screen)
     {
-        Bitmap sprite = fireTimer > 0 && fireSprite != null ? fireSprite : baseSprite;
+        Bitmap sprite;
+        if (reloading && reloadSprite != null)
+            sprite = reloadSprite;
+        else if (fireTimer > 0 && fireSprite != null)
+            sprite = fireSprite;
+        else
+            sprite = baseSprite;
+
         if (sprite == null)
             return;
 
