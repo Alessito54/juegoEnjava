@@ -138,21 +138,7 @@ public class Main extends Canvas implements Runnable
 
         if (menuActive)
         {
-            // Renderizar menú con resolución 2x (320x240)
-            for (int i = 0; i < pixelsMenu.length; i++)
-            {
-                pixelsMenu[i] = 0;
-            }
-
-            menu.render(screenMenu);
-
-            for (int i = 0; i < pixelsMenu.length; i++)
-            {
-                pixelsMenu[i] = screenMenu.pixels[i];
-            }
-
-            // Dibujar menú (320x240 escalado a 640x480)
-            g.drawImage(imageMenu, 0, 0, WIDTH * SCALE, HEIGHT * SCALE, null);
+            menu.renderToGraphics(g, WIDTH * SCALE, HEIGHT * SCALE);
         }
         else
         {
@@ -189,15 +175,14 @@ public class Main extends Canvas implements Runnable
             }
             spaceWasDown = inputHandler.keys[java.awt.event.KeyEvent.VK_SPACE];
             
-            // Detectar clics en botón START del menú
-            if (inputHandler.mousePressed)
+            // Detectar click en botón START del menú (evento latched)
+            if (inputHandler.consumeMouseClick())
             {
-                int buttonClicked = menu.checkClick(inputHandler.mouseX, inputHandler.mouseY, WIDTH * SCALE, HEIGHT * SCALE);
+                int buttonClicked = menu.checkClick(inputHandler.mouseX, inputHandler.mouseY, getWidth(), getHeight());
                 
                 if (buttonClicked == Menu.BUTTON_START)
                 {
                     menuActive = false;
-                    inputHandler.mousePressed = false;
                 }
             }
             

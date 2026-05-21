@@ -19,6 +19,7 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
     public int mouseX;
     public int mouseY;
     public boolean mousePressed;
+    private boolean mouseClickPending;
 
     public InputHandler()
     {
@@ -26,6 +27,7 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
         mouseX = 0;
         mouseY = 0;
         mousePressed = false;
+        mouseClickPending = false;
     }
 
     @Override
@@ -34,8 +36,11 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
     }
 
     @Override
-    public void mouseClicked(MouseEvent arg0)
+    public void mouseClicked(MouseEvent e)
     {
+        mouseX = e.getX();
+        mouseY = e.getY();
+        mouseClickPending = true;
     }
 
     @Override
@@ -54,6 +59,7 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
         mouseX = e.getX();
         mouseY = e.getY();
         mousePressed = true;
+        mouseClickPending = true;
     }
 
     @Override
@@ -105,6 +111,16 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
     @Override
     public void keyTyped(KeyEvent arg0)
     {
+    }
+
+    public boolean consumeMouseClick()
+    {
+        if (mouseClickPending)
+        {
+            mouseClickPending = false;
+            return true;
+        }
+        return false;
     }
 
 }
