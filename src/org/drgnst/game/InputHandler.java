@@ -16,10 +16,16 @@ import java.awt.event.MouseWheelListener;
 public class InputHandler implements KeyListener, FocusListener, MouseMotionListener, MouseListener, MouseWheelListener
 {
     public boolean keys[];
+    public int mouseX;
+    public int mouseY;
+    public boolean mousePressed;
 
     public InputHandler()
     {
         keys = new boolean[65535];
+        mouseX = 0;
+        mouseY = 0;
+        mousePressed = false;
     }
 
     @Override
@@ -43,23 +49,33 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
     }
 
     @Override
-    public void mousePressed(MouseEvent arg0)
+    public void mousePressed(MouseEvent e)
     {
+        mouseX = e.getX();
+        mouseY = e.getY();
+        mousePressed = true;
     }
 
     @Override
-    public void mouseReleased(MouseEvent arg0)
+    public void mouseReleased(MouseEvent e)
     {
+        mouseX = e.getX();
+        mouseY = e.getY();
+        mousePressed = false;
     }
 
     @Override
-    public void mouseDragged(MouseEvent arg0)
+    public void mouseDragged(MouseEvent e)
     {
+        mouseX = e.getX();
+        mouseY = e.getY();
     }
 
     @Override
-    public void mouseMoved(MouseEvent arg0)
+    public void mouseMoved(MouseEvent e)
     {
+        mouseX = e.getX();
+        mouseY = e.getY();
     }
 
     @Override

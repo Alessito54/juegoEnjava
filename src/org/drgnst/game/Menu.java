@@ -9,11 +9,26 @@ import javax.imageio.ImageIO;
 import org.drgnst.game.gfx.Bitmap;
 
 /**
- * Main menu renderer
+ * Main menu renderer with button support
  */
 public class Menu
 {
     private Bitmap menuImage;
+    private static final int BUTTON_START_X = 160;
+    private static final int BUTTON_START_Y = 250;
+    private static final int BUTTON_START_W = 80;
+    private static final int BUTTON_START_H = 40;
+    
+    private static final int BUTTON_EXIT_X = 260;
+    private static final int BUTTON_EXIT_Y = 250;
+    private static final int BUTTON_EXIT_W = 60;
+    private static final int BUTTON_EXIT_H = 40;
+    
+    private int lastClickX = -1;
+    private int lastClickY = -1;
+    public static final int BUTTON_NONE = 0;
+    public static final int BUTTON_START = 1;
+    public static final int BUTTON_EXIT = 2;
 
     public Menu()
     {
@@ -57,8 +72,85 @@ public class Menu
         // Escalar la imagen del menu para que ocupe toda la pantalla
         scaleAndRenderMenu(screen, menuImage);
 
-        // Mostrar texto: "Presiona SPACE para continuar"
-        drawMenuText(screen, 6, screen.height - 12, "PRESS SPACE TO START", 0xffffff);
+        // Dibujar botones
+        drawButton(screen, BUTTON_START_X, BUTTON_START_Y, BUTTON_START_W, BUTTON_START_H, "START", 0x28be46);
+        drawButton(screen, BUTTON_EXIT_X, BUTTON_EXIT_Y, BUTTON_EXIT_W, BUTTON_EXIT_H, "EXIT", 0xdc3c3c);
+    }
+    
+    public int checkClick(int mouseX, int mouseY, int screenWidth, int screenHeight)
+    {
+        // Escalar coordenadas del mouse a resolución del menú
+        float scaleX = (float) BUTTON_START_W / screenWidth;
+        float scaleY = (float) BUTTON_START_H / screenHeight;
+        
+        int menuMouseX = (int) (mouseX * 3);  // MENU_WIDTH = WIDTH * 3
+        int menuMouseY = (int) (mouseY * 3);  // MENU_HEIGHT = HEIGHT * 3
+        
+        // Verificar botones
+        if (menuMouseX >= BUTTON_START_X && menuMouseX < BUTTON_START_X + BUTTON_START_W &&
+            menuMouseY >= BUTTON_START_Y && menuMouseY < BUTTON_START_Y + BUTTON_START_H)
+        {
+            return BUTTON_START;
+        }
+        
+        if (menuMouseX >= BUTTON_EXIT_X && menuMouseX < BUTTON_EXIT_X + BUTTON_EXIT_W &&
+            menuMouseY >= BUTTON_EXIT_Y && menuMouseY < BUTTON_EXIT_Y + BUTTON_EXIT_H)
+        {
+            return BUTTON_EXIT;
+        }
+        
+        return BUTTON_NONE;
+    }
+    
+    private void drawButton(Bitmap screen, int x, int y, int w, int h, String label, int color)
+    {
+        // Dibujar fondo del botón
+        fillRect(screen, x, y, w, h, color);
+        
+        // Dibujar borde
+        drawRect(screen, x - 1, y - 1, w + 2, h + 2, 0xffffff);
+    }
+    
+    private void fillRect(Bitmap screen, int x, int y, int w, int h, int color)
+    {
+        for (int yy = y; yy < y + h; yy++)
+        {
+            if (yy < 0 || yy >= screen.height)
+                continue;
+            for (int xx = x; xx < x + w; xx++)
+            {
+                if (xx < 0 || xx >= screen.width)
+                    continue;
+                screen.pixels[xx + yy * screen.width] = color & 0xffffff;
+            }
+        }
+    }
+    
+    private void drawRect(Bitmap screen, int x, int y, int w, int h, int color)
+    {
+        // Top and bottom
+        for (int xx = x; xx < x + w; xx++)
+        {
+            if (xx >= 0 && xx < screen.width)
+            {
+                if (y >= 0 && y < screen.height)
+                    screen.pixels[xx + y * screen.width] = color & 0xffffff;
+                if (y + h - 1 >= 0 && y + h - 1 < screen.height)
+                    screen.pixels[xx + (y + h - 1) * screen.width] = color & 0xffffff;
+            }
+        }
+        
+        // Left and right
+        for (int yy = y; yy < y + h; yy++)
+        {
+            if (yy >= 0 && yy < screen.height)
+            {
+                if (x >= 0 && x < screen.width)
+                    screen.pixels[x + yy * screen.width] = color & 0xffffff;
+                if (x + w - 1 >= 0 && x + w - 1 < screen.width)
+                    screen.pixels[x + w - 1 + yy * screen.width] = color & 0xffffff;
+            }
+        }
     }
 
     private void scaleAndRenderMenu(Bitmap screen, Bitmap menu)
@@ -102,8 +194,6 @@ public class Menu
 
     private void drawMenuText(Bitmap screen, int x, int y, String text, int color)
     {
-        // Dibujar texto simple de propósito (letras grandes)
-        // Aquí simplemente dejamos espacio para añadir texto si es necesario
-        // Por ahora solo lo dejamos como placeholder
+        // Placeholder para texto future
     }
 }

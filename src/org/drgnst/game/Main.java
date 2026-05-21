@@ -19,9 +19,9 @@ public class Main extends Canvas implements Runnable
     public static final int WIDTH = 160;
     public static final int HEIGHT = WIDTH * 3 / 4;
     public static final int SCALE = 4;
-    public static final int MENU_WIDTH = WIDTH * 2;
-    public static final int MENU_HEIGHT = HEIGHT * 2;
-    public static final int MENU_SCALE = SCALE / 2;  // 2x para menú (misma ventana, mejor resolución)
+    public static final int MENU_WIDTH = WIDTH * 3;  // 480
+    public static final int MENU_HEIGHT = HEIGHT * 3;  // 360
+    public static final int MENU_SCALE = SCALE / 3;  // ~1.3x para menú
     public static final String TITLE = "Perspective";
     public static final double FRAME_LIMIT = 60.0;
 
@@ -181,13 +181,31 @@ public class Main extends Canvas implements Runnable
     {
         if (menuActive)
         {
-            // Detectar SPACE para iniciar el juego
+            // Detectar SPACE o click en START para iniciar el juego
             if (inputHandler.keys[java.awt.event.KeyEvent.VK_SPACE] && !spaceWasDown)
             {
                 menuActive = false;
                 spaceWasDown = true;
             }
             spaceWasDown = inputHandler.keys[java.awt.event.KeyEvent.VK_SPACE];
+            
+            // Detectar clics en botones del menú
+            if (inputHandler.mousePressed)
+            {
+                int buttonClicked = menu.checkClick(inputHandler.mouseX, inputHandler.mouseY, WIDTH * SCALE, HEIGHT * SCALE);
+                
+                if (buttonClicked == Menu.BUTTON_START)
+                {
+                    menuActive = false;
+                    inputHandler.mousePressed = false;
+                }
+                else if (buttonClicked == Menu.BUTTON_EXIT)
+                {
+                    isRunning = false;
+                    inputHandler.mousePressed = false;
+                }
+            }
+            
             screenMenu.update();
         }
         else
