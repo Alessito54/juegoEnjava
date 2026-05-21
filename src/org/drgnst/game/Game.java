@@ -333,6 +333,7 @@ public class Game
     public void recordDeath()
     {
         deaths++;
+        score = 0;
         jumpscareTimer = 180; // Mostrar jumpscare durante 3 segundos (180 frames a 60 FPS)
         // Reproducir jumpscare con delay para que se escuche
         new Thread(() -> {
