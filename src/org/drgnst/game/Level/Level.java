@@ -8,11 +8,14 @@ import java.util.Map;
 import javax.imageio.ImageIO;
 
 import org.drgnst.game.gfx.Sprite;
+import org.drgnst.game.entities.Medkit;
+
+import java.util.ArrayList;
 
 /**
  * @author Sopiro
  * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:31:44
+ * 2015. 12. 14. ï¿½ï¿½ï¿½ï¿½ 5:31:44
  */
 public class Level
 {
@@ -23,6 +26,7 @@ public class Level
     public int height;
     public int[] pixels;
     public Block[] tile;
+    public ArrayList<Medkit> medkits;
 
     public int xSpawn;
     public int ySpawn;
@@ -34,6 +38,7 @@ public class Level
         this.height = height;
         tile = new Block[width * height];
         this.pixels = new int[width * height];
+        this.medkits = new ArrayList<Medkit>();
     }
 
     public void load()
@@ -53,14 +58,31 @@ public class Level
                 {
                     block = new SolidBlock();
                     block.col = 0x667CDB & 0x555555;
-                } else if (type == 0xFFFF00)
+                }
+                else if (type == 0xFF6B6B)
+                {
+                    block = new SolidBlock();
+                    block.col = 0xFF6B6B & 0x333333;
+                }
+                else if (type == 0x4ECDC4)
+                {
+                    block = new SolidBlock();
+                    block.col = 0x4ECDC4 & 0x333333;
+                }
+                else if (type == 0xFFFF00)
                 {
                     xSpawn = x;
                     ySpawn = y;
-                } else if (type == 0x00FF00)
+                }
+                else if (type == 0x00FFFF)
+                {
+                    medkits.add(new Medkit(x + 0.5, y + 0.5));
+                }
+                else if (type == 0x00FF00)
                 {
                     block.addSprite(new Sprite(0, 0, 0, 0, 0x003300));
-                } else if (type == 0xff00ff)
+                }
+                else if (type == 0xff00ff)
                 {
                     block.ceilCol = 0x550055;
                     block.floorCol = 0x550000;

@@ -7,7 +7,7 @@ import org.drgnst.game.Game;
 /**
  * @author Sopiro
  * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:32:00
+ * 2015. 12. 14. ï¿½ï¿½ï¿½ï¿½ 5:32:00
  */
 public class Screen extends Bitmap
 {
@@ -33,7 +33,9 @@ public class Screen extends Bitmap
         perspectiveVision.render(game);
         perspectiveVision.renderFog(3);
         render(perspectiveVision, 0, 0);
-//		render(test, (width - 50) / 2 + ox, (height - 50) / 2 + oy);
+        
+        // Renderizar el arma
+        game.weapon.render(this);
     }
 
     public void update()

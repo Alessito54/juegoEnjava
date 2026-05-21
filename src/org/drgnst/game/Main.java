@@ -11,11 +11,7 @@ import javax.swing.JFrame;
 
 import org.drgnst.game.gfx.Screen;
 
-/**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:31:23
- */
+
 public class Main extends Canvas implements Runnable
 {
     private static final long serialVersionUID = 1L;
@@ -102,8 +98,8 @@ public class Main extends Canvas implements Runnable
 
             if (System.currentTimeMillis() - frameCounter >= 1000)
             {
-                // System.out.println("Frames : " + frames + ", Updates :" +
-                // updates);
+                System.out.println("Frames : " + frames + ", Updates :" +
+                updates);
                 frames = 0;
                 updates = 0;
                 frameCounter += 1000;
@@ -158,6 +154,10 @@ public class Main extends Canvas implements Runnable
 
     public void dispose()
     {
+        if (game != null)
+        {
+            game.cleanup();
+        }
         System.exit(0);
     }
 
