@@ -19,16 +19,22 @@ public class Main extends Canvas implements Runnable
     public static final int WIDTH = 160;
     public static final int HEIGHT = WIDTH * 3 / 4;
     public static final int SCALE = 4;
+    public static final int MENU_WIDTH = WIDTH * 2;
+    public static final int MENU_HEIGHT = HEIGHT * 2;
+    public static final int MENU_SCALE = SCALE / 2;  // 2x para menú (misma ventana, mejor resolución)
     public static final String TITLE = "Perspective";
     public static final double FRAME_LIMIT = 60.0;
 
     private boolean isRunning = false;
 
     public final BufferedImage image;
+    public final BufferedImage imageMenu;
     public final int[] pixels;
+    public final int[] pixelsMenu;
 
     private Game game;
     private Screen screen;
+    private Screen screenMenu;
     private InputHandler inputHandler;
     private Menu menu;
     private boolean menuActive;
@@ -43,6 +49,9 @@ public class Main extends Canvas implements Runnable
 
         image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         pixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
+
+        imageMenu = new BufferedImage(MENU_WIDTH, MENU_HEIGHT, BufferedImage.TYPE_INT_RGB);
+        pixelsMenu = ((DataBufferInt) imageMenu.getRaster().getDataBuffer()).getData();
 
         inputHandler = new InputHandler();
 
@@ -68,6 +77,7 @@ public class Main extends Canvas implements Runnable
     {
         game = new Game();
         screen = new Screen(WIDTH, HEIGHT);
+        screenMenu = new Screen(MENU_WIDTH, MENU_HEIGHT);
         menu = new Menu();
         menuActive = true;
         spaceWasDown = false;
@@ -126,26 +136,42 @@ public class Main extends Canvas implements Runnable
 
         Graphics g = bs.getDrawGraphics();
 
-        for (int i = 0; i < pixels.length; i++)
-        {
-            pixels[i] = 0;
-        }
-
         if (menuActive)
         {
-            menu.render(screen);
+            // Renderizar menú con resolución 2x (320x240)
+            for (int i = 0; i < pixelsMenu.length; i++)
+            {
+                pixelsMenu[i] = 0;
+            }
+
+            menu.render(screenMenu);
+
+            for (int i = 0; i < pixelsMenu.length; i++)
+            {
+                pixelsMenu[i] = screenMenu.pixels[i];
+            }
+
+            // Dibujar menú (320x240 escalado a 640x480)
+            g.drawImage(imageMenu, 0, 0, WIDTH * SCALE, HEIGHT * SCALE, null);
         }
         else
         {
+            // Renderizar juego con resolución normal (160x120)
+            for (int i = 0; i < pixels.length; i++)
+            {
+                pixels[i] = 0;
+            }
+
             screen.render(game);
-        }
 
-        for (int i = 0; i < pixels.length; i++)
-        {
-            pixels[i] = screen.pixels[i];
-        }
+            for (int i = 0; i < pixels.length; i++)
+            {
+                pixels[i] = screen.pixels[i];
+            }
 
-        g.drawImage(image, 0, 0, WIDTH * SCALE, HEIGHT * SCALE, null);
+            // Dibujar juego (160x120 escalado a 640x480)
+            g.drawImage(image, 0, 0, WIDTH * SCALE, HEIGHT * SCALE, null);
+        }
 
         g.dispose();
         bs.show();
@@ -162,12 +188,13 @@ public class Main extends Canvas implements Runnable
                 spaceWasDown = true;
             }
             spaceWasDown = inputHandler.keys[java.awt.event.KeyEvent.VK_SPACE];
+            screenMenu.update();
         }
         else
         {
             game.update(inputHandler.keys);
+            screen.update();
         }
-        screen.update();
     }
 
     public void stop()
