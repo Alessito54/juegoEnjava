@@ -13,9 +13,7 @@ import org.drgnst.game.entities.Medkit;
 import java.util.ArrayList;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ���� 5:31:44
+ * Level loader and container
  */
 public class Level
 {

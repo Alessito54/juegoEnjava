@@ -6,9 +6,7 @@ import java.util.List;
 import org.drgnst.game.gfx.Sprite;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:31:52
+ * Block definition
  */
 public class Block
 {

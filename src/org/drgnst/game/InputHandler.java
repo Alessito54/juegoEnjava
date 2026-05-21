@@ -11,9 +11,7 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:31:33
+ * Input handling utilities
  */
 public class InputHandler implements KeyListener, FocusListener, MouseMotionListener, MouseListener, MouseWheelListener
 {

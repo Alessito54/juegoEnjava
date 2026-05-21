@@ -1,9 +1,7 @@
 package org.drgnst.game.gfx;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:32:08
+ * Bitmap pixel buffer
  */
 public class Bitmap
 {

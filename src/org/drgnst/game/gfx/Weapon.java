@@ -67,7 +67,9 @@ public class Weapon
         int spriteHeight = (int)(sprite.height * scale);
 
         int x0 = screen.width - spriteWidth + (int) bobbingX;
-        int y0 = screen.height - spriteHeight + (int) bobbingY;
+        // Bajar el arma unos píxeles para que no tape la pantalla (~40px)
+        final int VERTICAL_OFFSET = 40;
+        int y0 = screen.height - spriteHeight + (int) bobbingY + VERTICAL_OFFSET;
 
         if (fireTimer > 0)
         {

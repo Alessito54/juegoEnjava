@@ -12,6 +12,7 @@ import org.drgnst.game.gfx.Bitmap;
 public class Enemy
 {
     private static Bitmap sprite;
+    private static Bitmap fireSprite;
     private static final double FOLLOW_STOP_DISTANCE = 1.25;
 
     public double x;
@@ -55,7 +56,7 @@ public class Enemy
 
     public Bitmap getSprite()
     {
-        return sprite;
+        return attackTimer > 0 && fireSprite != null ? fireSprite : sprite;
     }
 
     private static void loadSprite()
@@ -78,6 +79,22 @@ public class Enemy
         {
             System.err.println("✗ Error cargando enemigo.png");
             e.printStackTrace();
+        }
+        // Cargar sprite de disparo (si existe)
+        try
+        {
+            BufferedImage image2 = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/enemigoDisparo.png"));
+            if (image2 != null)
+            {
+                Bitmap res2 = new Bitmap(image2.getWidth(), image2.getHeight());
+                image2.getRGB(0, 0, res2.width, res2.height, res2.pixels, 0, res2.width);
+                fireSprite = res2;
+                System.out.println("✓ Sprite enemigo (disparo) cargado: " + res2.width + "x" + res2.height);
+            }
+        }
+        catch (IOException e)
+        {
+            // No es crítico si falla, seguir con sprite base
         }
     }
 

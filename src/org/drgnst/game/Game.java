@@ -33,6 +33,7 @@ public class Game
     private int playerHealth;
     private int kills;
     private int deaths;
+    private int deathFlashTimer;
 
     public Game()
     {
@@ -78,6 +79,25 @@ public class Game
         }
 
         spaceWasDown = space;
+
+        // Si el jugador muere, registrar muerte y respawnear en spawn
+        if (playerHealth <= 0)
+        {
+            recordDeath();
+            deathFlashTimer = 30;
+            player.x = level.xSpawn;
+            player.y = level.ySpawn;
+            playerHealth = PLAYER_MAX_HEALTH;
+            System.out.println("✗ Has muerto. Respawn en spawn.");
+        }
+
+        if (deathFlashTimer > 0)
+            deathFlashTimer--;
+    }
+
+    public int getDeathFlashTimer()
+    {
+        return deathFlashTimer;
     }
 
     private void updateMedkits()
