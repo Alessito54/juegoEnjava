@@ -40,6 +40,7 @@ public class Game
     private int deathFlashTimer;
     private Bitmap jumpscareImage;
     private int jumpscareTimer;
+    private int firingCooldown; // Cooldown entre disparos
 
     public Game()
     {
@@ -54,6 +55,7 @@ public class Game
         kills = 0;
         deaths = 0;
         jumpscareTimer = 0;
+        firingCooldown = 0;
         loadJumpscareImage();
 
         // Iniciar música de fondo
@@ -79,14 +81,19 @@ public class Game
         updateMedkits();
         updateEnemies();
 
-        if (space && !spaceWasDown)
+        if (space && !spaceWasDown && firingCooldown <= 0)
         {
             weapon.fire();
             audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/disparo.wav");
             shootEnemy();
+            firingCooldown = 60; // 1 segundo de cooldown a 60 FPS
         }
 
         spaceWasDown = space;
+        
+        // Reducir cooldown de disparo
+        if (firingCooldown > 0)
+            firingCooldown--;
 
         // Si el jugador muere, registrar muerte y respawnear en spawn
         if (playerHealth <= 0)
@@ -253,9 +260,16 @@ public class Game
     public void recordDeath()
     {
         deaths++;
-        jumpscareTimer = 300; // Mostrar jumpscare durante 5 segundos (300 frames a 60 FPS)
-        audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/jumpscare.wav");
-        System.out.println("☠ ¡JUMPSCARE! Sonido y imagen activados por 5 segundos");
+        jumpscareTimer = 180; // Mostrar jumpscare durante 3 segundos (180 frames a 60 FPS)
+        // Reproducir jumpscare con delay para que se escuche
+        new Thread(() -> {
+            try {
+                audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/jumpscare.wav");
+            } catch (Exception e) {
+                System.err.println("Error reproduciendo jumpscare: " + e.getMessage());
+            }
+        }).start();
+        System.out.println("☠ ¡JUMPSCARE! Sonido y imagen activados por 3 segundos");
     }
 
     public int getDeaths()
