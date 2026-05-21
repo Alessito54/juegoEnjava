@@ -3,11 +3,12 @@ package org.drgnst.game.gfx;
 import org.drgnst.game.Game;
 import org.drgnst.game.Level.Block;
 import org.drgnst.game.Level.Level;
+import org.drgnst.game.entities.Enemy;
 
 /**
  * @author Sopiro
  * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:32:03
+ * 2015. 12. 14. ï¿½ï¿½ï¿½ï¿½ 5:32:03
  */
 public class Bitmap3D extends Bitmap
 {
@@ -81,6 +82,235 @@ public class Bitmap3D extends Bitmap
                     Sprite sprite = c.sprites.get(i);
 
                     renderSprite(x + sprite.x, sprite.y, y + sprite.z, sprite.tex, sprite.col);
+                }
+            }
+        }
+
+        for (int i = 0; i < game.enemies.size(); i++)
+        {
+            Enemy enemy = game.enemies.get(i);
+            renderEnemySprite(enemy.x, enemy.y, enemy.getSprite());
+            renderEnemyHealthBar(enemy);
+        }
+
+        for (int i = 0; i < game.level.medkits.size(); i++)
+        {
+            org.drgnst.game.entities.Medkit medkit = game.level.medkits.get(i);
+            renderMedkitSprite(medkit.x, medkit.y, medkit.getSprite());
+        }
+    }
+
+    private void renderEnemyHealthBar(Enemy enemy)
+    {
+        double xo = enemy.x - xCam;
+        double yo = 0.62 + zCam / 8;
+        double zo = enemy.y - yCam;
+
+        double xx = xo * rCos + zo * rSin;
+        double zz = -xo * rSin + zo * rCos;
+
+        if (zz < 0.1)
+            return;
+
+        double xPixelCenter = xx / zz * fov + xCenter;
+        int barPixelX = (int) xPixelCenter;
+        int barPixelY = (int) ((yo / zz * fov + yCenter) - 30);
+
+        if (barPixelX < 0 || barPixelX > width || barPixelY < 0 || barPixelY > height)
+            return;
+
+        int barWidth = 20;
+        int barHeight = 3;
+        int healthPercent = enemy.getHealthPercent();
+        int fillWidth = (int) (barWidth * (healthPercent / 100.0));
+
+        for (int x = 0; x < barWidth; x++)
+        {
+            for (int y = 0; y < barHeight; y++)
+            {
+                int px = barPixelX - barWidth / 2 + x;
+                int py = barPixelY + y;
+
+                if (px < 0 || px >= width || py < 0 || py >= height)
+                    continue;
+
+                int argb = pixels[px + py * width];
+                int r = (argb >> 16) & 0xff;
+                int g = (argb >> 8) & 0xff;
+                int b = argb & 0xff;
+
+                if (x < fillWidth)
+                {
+                    if (healthPercent > 60)
+                        pixels[px + py * width] = (0x28 << 16) | (0xbe << 8) | 0x46;
+                    else if (healthPercent > 30)
+                        pixels[px + py * width] = (0xf5 << 16) | (0xb4 << 8) | 0x28;
+                    else
+                        pixels[px + py * width] = (0xdc << 16) | (0x3c << 8) | 0x3c;
+                }
+                else
+                {
+                    pixels[px + py * width] = 0x333333;
+                }
+            }
+        }
+    }
+
+    public void renderEnemySprite(double x, double z, Bitmap sprite)
+    {
+        if (sprite == null)
+            return;
+
+        double xo = x - xCam;
+        double yo = 0.42 + zCam / 8;
+        double zo = z - yCam;
+
+        double xx = xo * rCos + zo * rSin;
+        double zz = -xo * rSin + zo * rCos;
+
+        if (zz < 0.1)
+            return;
+
+        double worldWidth = 0.62;
+        double worldHeight = 0.82;
+
+        double xPixelCenter = xx / zz * fov + xCenter;
+        double xPixel0 = xPixelCenter - (worldWidth / 2.0) / zz * fov;
+        double xPixel1 = xPixelCenter + (worldWidth / 2.0) / zz * fov;
+
+        double yPixelBase = yo / zz * fov + yCenter;
+        double yPixel0 = yPixelBase - worldHeight / zz * fov;
+        double yPixel1 = yPixelBase;
+
+        int xp0 = (int) (xPixel0);
+        int xp1 = (int) (xPixel1);
+        int yp0 = (int) (yPixel0);
+        int yp1 = (int) (yPixel1);
+
+        if (xp0 < 0)
+            xp0 = 0;
+        if (xp1 > width)
+            xp1 = width;
+        if (yp0 < 0)
+            yp0 = 0;
+        if (yp1 > height)
+            yp1 = height;
+
+        if (xp1 <= xp0 || yp1 <= yp0)
+            return;
+
+        double depth = zz * 8;
+
+        for (int yp = yp0; yp < yp1; yp++)
+        {
+            double pry = (yp - yPixel0) / (yPixel1 - yPixel0);
+            int yt = (int) (pry * (sprite.height - 1));
+
+            if (yt < 0)
+                yt = 0;
+            if (yt >= sprite.height)
+                yt = sprite.height - 1;
+
+            for (int xp = xp0; xp < xp1; xp++)
+            {
+                double prx = (xp - xPixel0) / (xPixel1 - xPixel0);
+                int xt = (int) (prx * (sprite.width - 1));
+
+                if (xt < 0)
+                    xt = 0;
+                if (xt >= sprite.width)
+                    xt = sprite.width - 1;
+
+                int color = sprite.pixels[xt + yt * sprite.width];
+                int alpha = (color >>> 24) & 0xff;
+
+                if (alpha < 120)
+                    continue;
+
+                if (depthBuffer[xp + yp * width] > depth)
+                {
+                    pixels[xp + yp * width] = color & 0xffffff;
+                    depthBuffer[xp + yp * width] = depth;
+                }
+            }
+        }
+    }
+
+    public void renderMedkitSprite(double x, double z, Bitmap sprite)
+    {
+        if (sprite == null)
+            return;
+
+        double xo = x - xCam;
+        double yo = 0.22 + zCam / 8;
+        double zo = z - yCam;
+
+        double xx = xo * rCos + zo * rSin;
+        double zz = -xo * rSin + zo * rCos;
+
+        if (zz < 0.1)
+            return;
+
+        double worldWidth = 0.32;
+        double worldHeight = 0.32;
+
+        double xPixelCenter = xx / zz * fov + xCenter;
+        double xPixel0 = xPixelCenter - (worldWidth / 2.0) / zz * fov;
+        double xPixel1 = xPixelCenter + (worldWidth / 2.0) / zz * fov;
+
+        double yPixelBase = yo / zz * fov + yCenter;
+        double yPixel0 = yPixelBase - worldHeight / zz * fov;
+        double yPixel1 = yPixelBase;
+
+        int xp0 = (int) (xPixel0);
+        int xp1 = (int) (xPixel1);
+        int yp0 = (int) (yPixel0);
+        int yp1 = (int) (yPixel1);
+
+        if (xp0 < 0)
+            xp0 = 0;
+        if (xp1 > width)
+            xp1 = width;
+        if (yp0 < 0)
+            yp0 = 0;
+        if (yp1 > height)
+            yp1 = height;
+
+        if (xp1 <= xp0 || yp1 <= yp0)
+            return;
+
+        double depth = zz * 8;
+
+        for (int yp = yp0; yp < yp1; yp++)
+        {
+            double pry = (yp - yPixel0) / (yPixel1 - yPixel0);
+            int yt = (int) (pry * (sprite.height - 1));
+
+            if (yt < 0)
+                yt = 0;
+            if (yt >= sprite.height)
+                yt = sprite.height - 1;
+
+            for (int xp = xp0; xp < xp1; xp++)
+            {
+                double prx = (xp - xPixel0) / (xPixel1 - xPixel0);
+                int xt = (int) (prx * (sprite.width - 1));
+
+                if (xt < 0)
+                    xt = 0;
+                if (xt >= sprite.width)
+                    xt = sprite.width - 1;
+
+                int color = sprite.pixels[xt + yt * sprite.width];
+                int alpha = (color >>> 24) & 0xff;
+
+                if (alpha < 120)
+                    continue;
+
+                if (depthBuffer[xp + yp * width] > depth)
+                {
+                    pixels[xp + yp * width] = color & 0xffffff;
+                    depthBuffer[xp + yp * width] = depth;
                 }
             }
         }
