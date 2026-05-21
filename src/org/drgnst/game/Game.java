@@ -8,6 +8,13 @@ import java.util.Random;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.drgnst.game.Level.Level;
 import org.drgnst.game.entities.Enemy;
@@ -26,6 +33,8 @@ public class Game
     private static final double SHOT_ANGLE_COS = 0.92;
     private static final int MAX_AMMO = 5;
     private static final int RELOAD_DURATION_FRAMES = 343; // ~5.72s, igual al audio
+    private static final int SCORE_PER_KILL = 100;
+    private static final Path SCORE_FILE = Paths.get("/home/alessandro/Java-3D-Rendering/res/score.json");
 
     public Level level;
     public Player player;
@@ -45,6 +54,8 @@ public class Game
     private int firingCooldown; // Cooldown entre disparos
     private int ammo;
     private int reloadTimer;
+    private int score;
+    private int maxScore;
 
     public Game()
     {
@@ -63,6 +74,8 @@ public class Game
         ammo = MAX_AMMO;
         reloadTimer = 0;
         weapon.setReloading(false);
+        score = 0;
+        maxScore = loadMaxScore();
         loadJumpscareImage();
 
         // Iniciar música de fondo
@@ -243,6 +256,7 @@ public class Game
             if (bestTarget.isDead())
             {
                 kills++;
+                addScore(SCORE_PER_KILL);
             }
         }
     }
@@ -304,6 +318,16 @@ public class Game
     public int getKills()
     {
         return kills;
+    }
+
+    public int getScore()
+    {
+        return score;
+    }
+
+    public int getMaxScore()
+    {
+        return maxScore;
     }
 
     public void recordDeath()
@@ -405,6 +429,64 @@ public class Game
      */
     public void cleanup()
     {
+        saveMaxScore();
         audioManager.stopMusic();
+    }
+
+    private void addScore(int points)
+    {
+        if (points <= 0)
+            return;
+
+        score += points;
+        if (score > maxScore)
+        {
+            maxScore = score;
+            saveMaxScore();
+        }
+    }
+
+    private int loadMaxScore()
+    {
+        try
+        {
+            if (!Files.exists(SCORE_FILE))
+            {
+                saveMaxScore(0);
+                return 0;
+            }
+
+            String content = new String(Files.readAllBytes(SCORE_FILE), StandardCharsets.UTF_8);
+            Matcher matcher = Pattern.compile("\"maxScore\"\\s*:\\s*(\\d+)").matcher(content);
+            if (matcher.find())
+                return Integer.parseInt(matcher.group(1));
+        }
+        catch (Exception e)
+        {
+            System.err.println("✗ Error cargando maxScore: " + e.getMessage());
+        }
+
+        return 0;
+    }
+
+    private void saveMaxScore()
+    {
+        saveMaxScore(maxScore);
+    }
+
+    private void saveMaxScore(int value)
+    {
+        try
+        {
+            if (SCORE_FILE.getParent() != null)
+                Files.createDirectories(SCORE_FILE.getParent());
+
+            String json = "{\n  \"maxScore\": " + Math.max(0, value) + "\n}\n";
+            Files.write(SCORE_FILE, json.getBytes(StandardCharsets.UTF_8));
+        }
+        catch (IOException e)
+        {
+            System.err.println("✗ Error guardando maxScore: " + e.getMessage());
+        }
     }
 }

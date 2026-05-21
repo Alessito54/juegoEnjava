@@ -46,15 +46,17 @@ public class Screen extends Bitmap
         // Kills + Deaths (compact, top-right)
         int hudScale = 1;
         int spacing = 2;
-        String ks = Integer.toString(Math.max(0, game.getKills()));
-        int kWidth = ks.length() * (3 * hudScale + 1);
         drawNumberRight(width - 6, 6, game.getKills(), 0xffffff, hudScale);
         drawNumberRight(width - 6, 14, game.getDeaths(), 0xff8888, hudScale);
 
-        // Barra de vida más discreta (bottom-left)
-        drawHealthBar(6, height - 12, 60, 6, game.getPlayerHealthPercent());
+        // Score y max score (top-left)
+        drawLabelAndNumber(6, 6, "SCORE", game.getScore(), 0xffd24d, 1);
+        drawLabelAndNumber(6, 14, "MAX", game.getMaxScore(), 0x7de3ff, 1);
 
-        // Munición: 5 balas en la parte inferior
+        // Barra de vida más discreta (lower-left, above bullets)
+        drawHealthBar(6, height - 34, 60, 6, game.getPlayerHealthPercent());
+
+        // Munición: 5 balas pequeñas en la esquina inferior izquierda
         drawAmmoHud(game.getAmmo(), game.getMaxAmmo());
 
         // Jumpscare a pantalla completa cuando muere
@@ -177,6 +179,90 @@ public class Screen extends Bitmap
         }
     }
 
+    private void drawLabelAndNumber(int x, int y, String label, int value, int color, int scale)
+    {
+        drawText(x, y, label, color, scale);
+        int labelWidth = label.length() * (3 * scale + 1);
+        drawNumber(x + labelWidth + 2, y, value, color, scale);
+    }
+
+    private void drawNumber(int x, int y, int value, int color, int scale)
+    {
+        String s = Integer.toString(Math.max(0, value));
+        int spacing = 1;
+        int dx = 0;
+        for (int i = 0; i < s.length(); i++)
+        {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9')
+                continue;
+            int d = c - '0';
+            drawDigit(x + dx, y, d, color, scale);
+            dx += 3 * scale + spacing;
+        }
+    }
+
+    private void drawText(int x, int y, String text, int color, int scale)
+    {
+        int dx = 0;
+        for (int i = 0; i < text.length(); i++)
+        {
+            char c = Character.toUpperCase(text.charAt(i));
+            if (c == ' ')
+            {
+                dx += 2 * scale;
+                continue;
+            }
+
+            int[] pat = getLetterPattern(c);
+            if (pat == null)
+            {
+                dx += 4 * scale;
+                continue;
+            }
+
+            for (int ry = 0; ry < 5; ry++)
+            {
+                int row = pat[ry];
+                for (int rx = 0; rx < 3; rx++)
+                {
+                    boolean on = ((row >> (2 - rx)) & 1) == 1;
+                    if (!on)
+                        continue;
+                    for (int sy = 0; sy < scale; sy++)
+                    {
+                        for (int sx = 0; sx < scale; sx++)
+                        {
+                            int px = x + dx + rx * scale + sx;
+                            int py = y + ry * scale + sy;
+                            if (px < 0 || px >= width || py < 0 || py >= height)
+                                continue;
+                            pixels[px + py * width] = color & 0xffffff;
+                        }
+                    }
+                }
+            }
+
+            dx += 4 * scale;
+        }
+    }
+
+    private int[] getLetterPattern(char c)
+    {
+        switch (c)
+        {
+            case 'S': return new int[] {0b111,0b100,0b111,0b001,0b111};
+            case 'C': return new int[] {0b111,0b100,0b100,0b100,0b111};
+            case 'O': return new int[] {0b111,0b101,0b101,0b101,0b111};
+            case 'R': return new int[] {0b110,0b101,0b110,0b101,0b101};
+            case 'E': return new int[] {0b111,0b100,0b111,0b100,0b111};
+            case 'M': return new int[] {0b101,0b111,0b111,0b101,0b101};
+            case 'A': return new int[] {0b111,0b101,0b111,0b101,0b101};
+            case 'X': return new int[] {0b101,0b101,0b010,0b101,0b101};
+            default: return null;
+        }
+    }
+
     private void drawHealthBar(int x, int y, int w, int h, int percent)
     {
         // Fondo
@@ -254,12 +340,12 @@ public class Screen extends Bitmap
         if (bulletIcon == null || maxAmmo <= 0)
             return;
 
-        int iconW = 18;
-        int iconH = 27;
-        int spacing = 3;
+        int iconW = 10;
+        int iconH = 15;
+        int spacing = 2;
         int totalW = maxAmmo * iconW + (maxAmmo - 1) * spacing;
-        int startX = (width - totalW) / 2;
-        int y = height - iconH - 4;
+        int startX = 6;
+        int y = height - iconH - 6;
 
         for (int i = 0; i < maxAmmo; i++)
         {
