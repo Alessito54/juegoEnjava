@@ -5,12 +5,16 @@ import static java.awt.event.KeyEvent.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import java.io.File;
 
 import org.drgnst.game.Level.Level;
 import org.drgnst.game.entities.Enemy;
 import org.drgnst.game.entities.Player;
 import org.drgnst.game.entities.Medkit;
 import org.drgnst.game.gfx.Weapon;
+import org.drgnst.game.gfx.Bitmap;
 import org.drgnst.game.audio.AudioManager;
 
 
@@ -34,6 +38,8 @@ public class Game
     private int kills;
     private int deaths;
     private int deathFlashTimer;
+    private Bitmap jumpscareImage;
+    private int jumpscareTimer;
 
     public Game()
     {
@@ -47,6 +53,8 @@ public class Game
         playerHealth = PLAYER_MAX_HEALTH;
         kills = 0;
         deaths = 0;
+        jumpscareTimer = 0;
+        loadJumpscareImage();
 
         // Iniciar música de fondo
         audioManager.playBackgroundMusic("/home/alessandro/Java-3D-Rendering/DoomEternalOST.wav");
@@ -93,6 +101,9 @@ public class Game
 
         if (deathFlashTimer > 0)
             deathFlashTimer--;
+
+        if (jumpscareTimer > 0)
+            jumpscareTimer--;
     }
 
     public int getDeathFlashTimer()
@@ -242,11 +253,45 @@ public class Game
     public void recordDeath()
     {
         deaths++;
+        jumpscareTimer = 8; // Mostrar jumpscare durante 8 frames
+        audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/jumpscare.wav");
     }
 
     public int getDeaths()
     {
         return deaths;
+    }
+
+    public int getJumpscareTimer()
+    {
+        return jumpscareTimer;
+    }
+
+    public Bitmap getJumpscareImage()
+    {
+        return jumpscareImage;
+    }
+
+    private void loadJumpscareImage()
+    {
+        try
+        {
+            BufferedImage img = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/jumpscare.png"));
+            jumpscareImage = new Bitmap(img.getWidth(), img.getHeight());
+            for (int y = 0; y < img.getHeight(); y++)
+            {
+                for (int x = 0; x < img.getWidth(); x++)
+                {
+                    jumpscareImage.pixels[x + y * img.getWidth()] = img.getRGB(x, y) & 0xffffff;
+                }
+            }
+            System.out.println("✓ Jumpscare cargado: " + img.getWidth() + "x" + img.getHeight());
+        }
+        catch (Exception e)
+        {
+            System.out.println("✗ Error al cargar jumpscare: " + e.getMessage());
+            jumpscareImage = null;
+        }
     }
     
     /**

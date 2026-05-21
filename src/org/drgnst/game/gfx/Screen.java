@@ -47,6 +47,14 @@ public class Screen extends Bitmap
         // Barra de vida más discreta (bottom-left)
         drawHealthBar(6, height - 12, 60, 6, game.getPlayerHealthPercent());
 
+        // Jumpscare a pantalla completa cuando muere
+        if (game.getJumpscareTimer() > 0 && game.getJumpscareImage() != null)
+        {
+            Bitmap jumpscare = game.getJumpscareImage();
+            // Escalar la imagen de jumpscare al tamaño de la pantalla
+            renderJumpscareFullScreen(jumpscare, width, height);
+        }
+
         // Overlay cuando muere: borde rojo sutil que se desvanece
         if (game.getDeathFlashTimer() > 0)
         {
@@ -209,6 +217,33 @@ public class Screen extends Bitmap
                 if (xx < 0 || xx >= width)
                     continue;
                 pixels[xx + yy * width] = color & 0xffffff;
+            }
+        }
+    }
+
+    private void renderJumpscareFullScreen(Bitmap jumpscare, int screenWidth, int screenHeight)
+    {
+        // Escalar la imagen de jumpscare al tamaño completo de la pantalla
+        double scaleX = (double) screenWidth / jumpscare.width;
+        double scaleY = (double) screenHeight / jumpscare.height;
+
+        for (int y = 0; y < screenHeight; y++)
+        {
+            for (int x = 0; x < screenWidth; x++)
+            {
+                int srcX = (int) (x / scaleX);
+                int srcY = (int) (y / scaleY);
+                
+                // Clamp to bounds
+                if (srcX < 0) srcX = 0;
+                if (srcX >= jumpscare.width) srcX = jumpscare.width - 1;
+                if (srcY < 0) srcY = 0;
+                if (srcY >= jumpscare.height) srcY = jumpscare.height - 1;
+
+                if (x < 0 || x >= screenWidth || y < 0 || y >= screenHeight)
+                    continue;
+
+                pixels[x + y * screenWidth] = jumpscare.pixels[srcX + srcY * jumpscare.width];
             }
         }
     }
