@@ -253,8 +253,9 @@ public class Game
     public void recordDeath()
     {
         deaths++;
-        jumpscareTimer = 8; // Mostrar jumpscare durante 8 frames
+        jumpscareTimer = 300; // Mostrar jumpscare durante 5 segundos (300 frames a 60 FPS)
         audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/jumpscare.wav");
+        System.out.println("☠ ¡JUMPSCARE! Sonido y imagen activados por 5 segundos");
     }
 
     public int getDeaths()
