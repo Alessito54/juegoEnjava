@@ -191,6 +191,10 @@ public class Game
             if (dot < SHOT_ANGLE_COS)
                 continue;
 
+            // Verificar línea de vista: no disparar a través de paredes
+            if (!hasLineOfSight(player.x, player.y, enemy.x, enemy.y))
+                continue;
+
             if (dist < bestDistance)
             {
                 bestDistance = dist;
@@ -309,6 +313,33 @@ public class Game
         }
     }
     
+    private boolean hasLineOfSight(double x1, double y1, double x2, double y2)
+    {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 0.1)
+            return true;
+
+        // Raycast en pasos pequeños
+        int steps = (int) (dist * 4); // 4 muestras por unidad
+        for (int i = 0; i <= steps; i++)
+        {
+            double t = (i == 0) ? 0 : (double) i / steps;
+            double px = x1 + dx * t;
+            double py = y1 + dy * t;
+
+            int bx = (int) Math.round(px);
+            int by = (int) Math.round(py);
+
+            if (level.getBlock(bx, by).SOLID_MOTION)
+                return false; // Hay pared en el camino
+        }
+
+        return true; // Línea de vista clara
+    }
+
     /**
      * Limpia recursos cuando el juego termina
      */
