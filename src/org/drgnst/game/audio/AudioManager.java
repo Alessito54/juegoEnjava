@@ -3,14 +3,17 @@ package org.drgnst.game.audio;
 import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Gestor de audio para reproducir música de fondo
+ * Gestor de audio para reproducir música de fondo y efectos de sonido
  */
 public class AudioManager
 {
     private Clip musicClip;
     private boolean isPlaying = false;
+    private List<Clip> activeSoundClips = new ArrayList<>();
     
     /**
      * Carga y reproduce un archivo de audio en bucle
@@ -65,16 +68,34 @@ public class AudioManager
 
                 AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(audioFile);
                 Clip clip = AudioSystem.getClip();
-                clip.open(audioInputStream);
-                clip.start();
-
-                while (clip.isRunning())
+                
+                synchronized (activeSoundClips)
                 {
-                    Thread.sleep(10);
+                    activeSoundClips.add(clip);
                 }
-
-                clip.close();
-                audioInputStream.close();
+                
+                clip.open(audioInputStream);
+                clip.addLineListener(event -> {
+                    if (event.getType() == LineEvent.Type.STOP)
+                    {
+                        try
+                        {
+                            clip.close();
+                            audioInputStream.close();
+                            synchronized (activeSoundClips)
+                            {
+                                activeSoundClips.remove(clip);
+                            }
+                        }
+                        catch (IOException e)
+                        {
+                            System.err.println("Error al cerrar clip: " + e.getMessage());
+                        }
+                    }
+                });
+                
+                clip.start();
+                System.out.println("♪ Sonido reproducido: " + filePath);
             }
             catch (UnsupportedAudioFileException e)
             {
@@ -87,10 +108,6 @@ public class AudioManager
             catch (LineUnavailableException e)
             {
                 System.err.println("Línea de audio no disponible: " + e.getMessage());
-            }
-            catch (InterruptedException e)
-            {
-                Thread.currentThread().interrupt();
             }
         }).start();
     }
@@ -105,6 +122,20 @@ public class AudioManager
             musicClip.stop();
             musicClip.close();
             isPlaying = false;
+        }
+        
+        // Cerrar todos los clips activos de sonidos
+        synchronized (activeSoundClips)
+        {
+            for (Clip clip : activeSoundClips)
+            {
+                if (clip != null && clip.isOpen())
+                {
+                    clip.stop();
+                    clip.close();
+                }
+            }
+            activeSoundClips.clear();
         }
     }
     
