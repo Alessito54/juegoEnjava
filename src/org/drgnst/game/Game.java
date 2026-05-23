@@ -17,6 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.drgnst.game.Level.Level;
+import org.drgnst.game.entities.Boss;
 import org.drgnst.game.entities.Enemy;
 import org.drgnst.game.entities.Player;
 import org.drgnst.game.entities.Medkit;
@@ -34,11 +35,16 @@ public class Game
     private static final int MAX_AMMO = 5;
     private static final int RELOAD_DURATION_FRAMES = 343; // ~5.72s, igual al audio
     private static final int SCORE_PER_KILL = 100;
+    private static final int SCORE_PER_BOSS_KILL = 1000;
+    private static final int BOSS_TRIGGER_KILLS = 5;
+    private static final String NORMAL_BACKGROUND_MUSIC = "/home/alessandro/Java-3D-Rendering/DoomEternalOST.wav";
+    private static final String BOSS_BACKGROUND_MUSIC = "/home/alessandro/Java-3D-Rendering/sonidos/bossSound.wav";
     private static final Path SCORE_FILE = Paths.get("/home/alessandro/Java-3D-Rendering/res/score.json");
 
     public Level level;
     public Player player;
     public List<Enemy> enemies;
+    private Boss boss;
     public Weapon weapon;
     public AudioManager audioManager;
     public int time;
@@ -56,6 +62,9 @@ public class Game
     private int reloadTimer;
     private int score;
     private int maxScore;
+    private boolean bossMusicPlaying;
+    private boolean bossDefeatedRewarded;
+    private boolean bossSpawnedOnce;
 
     public Game()
     {
@@ -77,9 +86,13 @@ public class Game
         score = 0;
         maxScore = loadMaxScore();
         loadJumpscareImage();
+        boss = null;
+        bossMusicPlaying = false;
+        bossDefeatedRewarded = false;
+        bossSpawnedOnce = false;
 
         // Iniciar música de fondo
-        audioManager.playBackgroundMusic("/home/alessandro/Java-3D-Rendering/DoomEternalOST.wav");
+        audioManager.playBackgroundMusic(NORMAL_BACKGROUND_MUSIC);
     }
 
     public void update(boolean[] keys)
@@ -100,6 +113,7 @@ public class Game
         weapon.update(player.x, player.y, moving);
         updateMedkits();
         updateEnemies();
+        updateBoss();
 
         if (reloadTimer > 0)
         {
@@ -176,7 +190,7 @@ public class Game
     {
         if (enemySpawnTimer <= 0)
         {
-            if (enemies.size() < 8)
+            if ((boss == null || boss.isExpired()) && enemies.size() < 8)
                 spawnEnemyNearPlayer();
             enemySpawnTimer = 180;
         }
@@ -211,10 +225,43 @@ public class Game
         }
     }
 
+    private void updateBoss()
+    {
+        if (!bossSpawnedOnce && boss == null && kills >= BOSS_TRIGGER_KILLS)
+            spawnBossNearPlayer();
+
+        if (boss == null)
+            return;
+
+        boss.updateAttackAnimation();
+
+        if (boss.isDead())
+        {
+            if (!bossDefeatedRewarded)
+                handleBossDefeat();
+
+            if (boss.isExpired())
+                boss = null;
+
+            return;
+        }
+
+        boss.update(player, level);
+
+        int damage = boss.attackIfReady(player);
+        if (damage > 0)
+        {
+            playerHealth -= damage;
+            if (playerHealth < 0)
+                playerHealth = 0;
+        }
+    }
+
     private void shootEnemy()
     {
         Enemy bestTarget = null;
         double bestDistance = Double.MAX_VALUE;
+        boolean bestTargetIsBoss = false;
 
         double lookX = -Math.sin(player.rot);
         double lookY = Math.cos(player.rot);
@@ -247,10 +294,42 @@ public class Game
             {
                 bestDistance = dist;
                 bestTarget = enemy;
+                bestTargetIsBoss = false;
             }
         }
 
-        if (bestTarget != null)
+        if (boss != null && !boss.isDead())
+        {
+            double dx = boss.x - player.x;
+            double dy = boss.y - player.y;
+            double dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist <= SHOT_MAX_DISTANCE && dist >= 0.001)
+            {
+                double dirX = dx / dist;
+                double dirY = dy / dist;
+                double dot = dirX * lookX + dirY * lookY;
+
+                if (dot >= SHOT_ANGLE_COS && hasLineOfSight(player.x, player.y, boss.x, boss.y) && dist < bestDistance)
+                {
+                    bestDistance = dist;
+                    bestTarget = null;
+                    bestTargetIsBoss = true;
+                }
+            }
+        }
+
+        if (bestTargetIsBoss && boss != null)
+        {
+            boss.takeDamage(SHOT_DAMAGE);
+            if (boss.isDead())
+            {
+                kills++;
+                addScore(SCORE_PER_BOSS_KILL);
+                handleBossDefeat();
+            }
+        }
+        else if (bestTarget != null)
         {
             bestTarget.takeDamage(SHOT_DAMAGE);
             if (bestTarget.isDead())
@@ -290,6 +369,55 @@ public class Game
         }
     }
 
+    private void spawnBossNearPlayer()
+    {
+        for (int i = 0; i < 40; i++)
+        {
+            double angle = random.nextDouble() * Math.PI * 2.0;
+            double distance = 4.0 + random.nextDouble() * 4.0;
+
+            double bx = player.x + Math.cos(angle) * distance;
+            double by = player.y + Math.sin(angle) * distance;
+
+            if (isSpawnFree(bx, by))
+            {
+                boss = new Boss(bx, by);
+                bossSpawnedOnce = true;
+                bossDefeatedRewarded = false;
+                startBossMusic();
+                System.out.println("☠ Boss generado tras " + BOSS_TRIGGER_KILLS + " bajas");
+                return;
+            }
+        }
+    }
+
+    private void startBossMusic()
+    {
+        if (bossMusicPlaying)
+            return;
+
+        audioManager.stopMusic();
+        audioManager.playBackgroundMusic(BOSS_BACKGROUND_MUSIC);
+        bossMusicPlaying = true;
+    }
+
+    private void restoreNormalMusic()
+    {
+        if (!bossMusicPlaying)
+            return;
+
+        audioManager.stopMusic();
+        audioManager.playBackgroundMusic(NORMAL_BACKGROUND_MUSIC);
+        bossMusicPlaying = false;
+    }
+
+    private void handleBossDefeat()
+    {
+        bossDefeatedRewarded = true;
+        restoreNormalMusic();
+        System.out.println("✓ Boss derrotado");
+    }
+
     private boolean isSpawnFree(double ex, double ey)
     {
         int bx = (int) Math.round(ex);
@@ -318,6 +446,11 @@ public class Game
     public int getKills()
     {
         return kills;
+    }
+
+    public Boss getBoss()
+    {
+        return boss;
     }
 
     public int getScore()

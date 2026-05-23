@@ -6,6 +6,10 @@ import java.awt.Graphics;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import java.io.File;
+import java.io.IOException;
+
+import javax.imageio.ImageIO;
 
 import javax.swing.JFrame;
 
@@ -19,6 +23,10 @@ public class Main extends Canvas implements Runnable
     public static final int WIDTH = 160;
     public static final int HEIGHT = WIDTH * 3 / 4;
     public static final int SCALE = 4;
+    public static final int WINDOW_WIDTH = 1672;
+    public static final int WINDOW_HEIGHT = 941;
+    public static final int GAME_DRAW_WIDTH = WIDTH * SCALE;
+    public static final int GAME_DRAW_HEIGHT = HEIGHT * SCALE;
     public static final int MENU_WIDTH = WIDTH * 3;  // 480
     public static final int MENU_HEIGHT = HEIGHT * 3;  // 360
     public static final int MENU_SCALE = SCALE / 3;  // ~1.3x para menú
@@ -29,6 +37,7 @@ public class Main extends Canvas implements Runnable
 
     public final BufferedImage image;
     public final BufferedImage imageMenu;
+    public final BufferedImage imageBackground;
     public final int[] pixels;
     public final int[] pixelsMenu;
 
@@ -42,7 +51,7 @@ public class Main extends Canvas implements Runnable
 
     public Main()
     {
-        Dimension d = new Dimension(WIDTH * SCALE, HEIGHT * SCALE);
+        Dimension d = new Dimension(WINDOW_WIDTH, WINDOW_HEIGHT);
         setMinimumSize(d);
         setMaximumSize(d);
         setPreferredSize(d);
@@ -52,6 +61,8 @@ public class Main extends Canvas implements Runnable
 
         imageMenu = new BufferedImage(MENU_WIDTH, MENU_HEIGHT, BufferedImage.TYPE_INT_RGB);
         pixelsMenu = ((DataBufferInt) imageMenu.getRaster().getDataBuffer()).getData();
+
+        imageBackground = loadBackgroundImage();
 
         inputHandler = new InputHandler();
 
@@ -102,15 +113,36 @@ public class Main extends Canvas implements Runnable
             lastTime = currentTime;
             unprocessedTime += passedTime;
 
+            boolean updated = false;
+
             if (unprocessedTime >= nsPerUpdate)
             {
-                unprocessedTime = 0;
-                update();
-                updates++;
+                while (unprocessedTime >= nsPerUpdate)
+                {
+                    unprocessedTime -= nsPerUpdate;
+                    update();
+                    updates++;
+                    updated = true;
+                }
             }
 
-            render();
-            frames++;
+            if (updated || frames == 0)
+            {
+                render();
+                frames++;
+            }
+            else
+            {
+                try
+                {
+                    Thread.sleep(1);
+                }
+                catch (InterruptedException e)
+                {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
 
             if (System.currentTimeMillis() - frameCounter >= 1000)
             {
@@ -138,14 +170,13 @@ public class Main extends Canvas implements Runnable
 
         if (menuActive)
         {
-            menu.renderToGraphics(g, WIDTH * SCALE, HEIGHT * SCALE);
+            menu.renderToGraphics(g, WINDOW_WIDTH, WINDOW_HEIGHT);
         }
         else
         {
-            // Renderizar juego con resolución normal (160x120)
-            for (int i = 0; i < pixels.length; i++)
+            if (imageBackground != null)
             {
-                pixels[i] = 0;
+                g.drawImage(imageBackground, 0, 0, null);
             }
 
             screen.render(game);
@@ -155,8 +186,9 @@ public class Main extends Canvas implements Runnable
                 pixels[i] = screen.pixels[i];
             }
 
-            // Dibujar juego (160x120 escalado a 640x480)
-            g.drawImage(image, 0, 0, WIDTH * SCALE, HEIGHT * SCALE, null);
+            int gameX = (WINDOW_WIDTH - GAME_DRAW_WIDTH) / 2;
+            int gameY = (WINDOW_HEIGHT - GAME_DRAW_HEIGHT) / 2;
+            g.drawImage(image, gameX, gameY, GAME_DRAW_WIDTH, GAME_DRAW_HEIGHT, null);
         }
 
         g.dispose();
@@ -226,5 +258,18 @@ public class Main extends Canvas implements Runnable
         frame.setVisible(true);
 
         game.start();
+    }
+
+    private BufferedImage loadBackgroundImage()
+    {
+        try
+        {
+            return ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/fondo.png"));
+        }
+        catch (IOException e)
+        {
+            System.err.println("✗ Error cargando fondo.png: " + e.getMessage());
+            return null;
+        }
     }
 }

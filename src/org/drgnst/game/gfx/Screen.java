@@ -53,6 +53,11 @@ public class Screen extends Bitmap
         drawLabelAndNumber(6, 6, "SCORE", game.getScore(), 0xffd24d, 1);
         drawLabelAndNumber(6, 14, "MAX", game.getMaxScore(), 0x7de3ff, 1);
 
+        if (game.getBoss() != null && !game.getBoss().isExpired())
+        {
+            drawLabelAndNumber(width / 2 - 22, 6, "BOSS", game.getBoss().getHealthPercent(), 0xd97cff, 1);
+        }
+
         // Barra de vida más discreta (lower-left, above bullets)
         drawHealthBar(6, height - 34, 60, 6, game.getPlayerHealthPercent());
 
