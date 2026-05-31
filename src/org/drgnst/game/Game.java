@@ -81,6 +81,7 @@ public class Game
     private volatile String localRoleLabel = "JUGADOR 1 (SERVIDOR)";
     private volatile String remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
     private volatile boolean remoteFiring = false;
+    private volatile boolean networkStateApplied = false;
 
     public Game()
     {
@@ -117,7 +118,6 @@ public class Game
         boolean turnRight = keys[VK_E];
         boolean space = keys[VK_SPACE];
         boolean moving = up || down || left || right;
-
 
         player.update(up, down, left, right, turnLeft, turnRight, space);
 
@@ -654,6 +654,9 @@ public class Game
         if (player2 == null)
             player2 = new Player(this);
 
+        if (weapon == null)
+            weapon = new Weapon();
+
         if (localAsServer)
         {
             localRoleLabel = "JUGADOR 1 (SERVIDOR)";
@@ -671,6 +674,8 @@ public class Game
         multiplayerEnabled = false;
         player2 = null;
         remoteKeys = new boolean[65535];
+        remoteFiring = false;
+        networkStateApplied = false;
         localRoleLabel = "JUGADOR 1 (SERVIDOR)";
         remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
     }
@@ -702,6 +707,34 @@ public class Game
             player2.y = state.p1Y;
             player2.rot = state.p1Angle;
             remoteFiring = state.p1Firing;
+
+            if (state.enemyStates != null)
+            {
+                if (!networkStateApplied)
+                {
+                    enemies = new ArrayList<Enemy>();
+                    for (NetworkProtocol.EnemyState enemyState : state.enemyStates)
+                    {
+                        Enemy enemy = new Enemy(enemyState.x, enemyState.y);
+                        enemy.applyNetworkState(enemyState);
+                        enemies.add(enemy);
+                    }
+                    networkStateApplied = true;
+                }
+                else
+                {
+                    int count = Math.min(enemies.size(), state.enemyStates.size());
+                    for (int i = 0; i < count; i++)
+                        enemies.get(i).applyNetworkState(state.enemyStates.get(i));
+                }
+            }
+
+            if (state.bossState != null)
+            {
+                if (boss == null)
+                    boss = new Boss(state.bossState.x, state.bossState.y);
+                boss.applyNetworkState(state.bossState);
+            }
         }
         else
         {
@@ -809,6 +842,8 @@ public class Game
             player2 = new Player(this);
         else
             player2 = null;
+        remoteFiring = false;
+        networkStateApplied = false;
         enemies = new ArrayList<Enemy>();
         boss = null;
         bossMusicPlaying = false;

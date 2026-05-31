@@ -1,6 +1,7 @@
 package org.drgnst.game.network;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 
 /**
  * Defines the protocol for multiplayer networking.
@@ -100,6 +101,9 @@ public class NetworkProtocol
         public double p2X, p2Y, p2Angle;
         public int p2Health, p2Ammo, p2Score, p2Kills;
         public boolean p2Firing;
+
+        public ArrayList<EnemyState> enemyStates = new ArrayList<>();
+        public BossState bossState;
         
         // Global state
         public int numEnemies;
@@ -110,6 +114,28 @@ public class NetworkProtocol
         {
             super(MessageType.GAME_STATE_UPDATE);
         }
+    }
+
+    public static class EnemyState implements Serializable
+    {
+        private static final long serialVersionUID = 1L;
+        public double x;
+        public double y;
+        public int health;
+        public int attackTimer;
+        public int deathTimer;
+        public boolean dying;
+    }
+
+    public static class BossState implements Serializable
+    {
+        private static final long serialVersionUID = 1L;
+        public double x;
+        public double y;
+        public int health;
+        public int attackTimer;
+        public int deathTimer;
+        public boolean dying;
     }
 
     /**

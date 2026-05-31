@@ -8,6 +8,7 @@ import javax.imageio.ImageIO;
 
 import org.drgnst.game.Level.Level;
 import org.drgnst.game.gfx.Bitmap;
+import org.drgnst.game.network.NetworkProtocol;
 
 public class Enemy
 {
@@ -206,5 +207,38 @@ public class Enemy
     public boolean isExpired()
     {
         return dying && deathTimer <= 0;
+    }
+
+    public void applyNetworkState(NetworkProtocol.EnemyState state)
+    {
+        if (state == null)
+            return;
+
+        this.x = state.x;
+        this.y = state.y;
+        this.attackTimer = state.attackTimer;
+        this.deathTimer = state.deathTimer;
+        this.dying = state.dying;
+        this.health = Math.max(0, state.health);
+    }
+
+    public int getAttackTimer()
+    {
+        return attackTimer;
+    }
+
+    public int getDeathTimer()
+    {
+        return deathTimer;
+    }
+
+    public boolean isDying()
+    {
+        return dying;
+    }
+
+    public int getHealth()
+    {
+        return health;
     }
 }

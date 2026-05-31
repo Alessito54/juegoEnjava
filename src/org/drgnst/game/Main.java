@@ -1235,9 +1235,44 @@ public class Main extends Canvas implements Runnable
         stateMessage.p2Kills = game.getKills();
         stateMessage.p2Firing = game.isRemoteFiring();
 
+        if (game.getRemotePlayer() != null)
+        {
+            stateMessage.p2X = game.getRemotePlayer().x;
+            stateMessage.p2Y = game.getRemotePlayer().y;
+            stateMessage.p2Angle = game.getRemotePlayer().rot;
+        }
+
         stateMessage.numEnemies = game.enemies != null ? game.enemies.size() : 0;
         stateMessage.gameTicks = game.time;
         stateMessage.bossDead = game.getBoss() == null || game.getBoss().isDead();
+
+        if (game.enemies != null)
+        {
+            for (org.drgnst.game.entities.Enemy enemy : game.enemies)
+            {
+                NetworkProtocol.EnemyState enemyState = new NetworkProtocol.EnemyState();
+                enemyState.x = enemy.x;
+                enemyState.y = enemy.y;
+                enemyState.health = enemy.getHealth();
+                enemyState.attackTimer = enemy.getAttackTimer();
+                enemyState.deathTimer = enemy.getDeathTimer();
+                enemyState.dying = enemy.isDying();
+                stateMessage.enemyStates.add(enemyState);
+            }
+        }
+
+        if (game.getBoss() != null)
+        {
+            org.drgnst.game.entities.Boss boss = game.getBoss();
+            NetworkProtocol.BossState bossState = new NetworkProtocol.BossState();
+            bossState.x = boss.x;
+            bossState.y = boss.y;
+            bossState.health = boss.getHealth();
+            bossState.attackTimer = boss.getAttackTimer();
+            bossState.deathTimer = boss.getDeathTimer();
+            bossState.dying = boss.isDying();
+            stateMessage.bossState = bossState;
+        }
         return stateMessage;
     }
 
