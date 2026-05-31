@@ -11,7 +11,7 @@ public class GameNetworkServer
 {
     private static final int SERVER_PORT = 5000;
     private static final int DISCOVERY_LISTEN_PORT = 5001;
-    private static final int MAX_CLIENTS = 2;
+    private static final int MAX_CLIENTS = 1;
 
     private ServerSocket serverSocket;
     private DatagramSocket discoverySocket;
@@ -21,6 +21,7 @@ public class GameNetworkServer
     private Thread acceptThread;
     private Thread discoveryThread;
     private ServerStateListener stateListener;
+    private java.util.function.BiConsumer<String, boolean[]> playerInputListener;
 
     public interface ServerStateListener
     {
@@ -172,6 +173,11 @@ public class GameNetworkServer
         return new ArrayList<>(connectedClients);
     }
 
+    public void setPlayerInputListener(java.util.function.BiConsumer<String, boolean[]> listener)
+    {
+        this.playerInputListener = listener;
+    }
+
     /**
      * Remove a client from the server.
      */
@@ -298,10 +304,10 @@ public class GameNetworkServer
                         }
                         else if (obj instanceof NetworkProtocol.PlayerInputMessage)
                         {
-                            // Forward input to other clients if game is running
                             NetworkProtocol.PlayerInputMessage msg = (NetworkProtocol.PlayerInputMessage) obj;
                             msg.clientId = clientId;
-                            // TODO: Process input
+                            if (server.playerInputListener != null && msg.keys != null)
+                                server.playerInputListener.accept(clientId, msg.keys);
                         }
                     }
                     catch (EOFException e)

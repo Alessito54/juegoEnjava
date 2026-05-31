@@ -40,6 +40,8 @@ public class Main extends Canvas implements Runnable
     private static final int BUTTON_HEIGHT = 52;
     private static final int BUTTON_GAP = 14;
     private static final int PLAYER_INPUT_MAX_LENGTH = 18;
+    private static final int CLIENT_SERVER_ROW_HEIGHT = 38;
+    private static final int CLIENT_SERVER_ROW_GAP = 10;
 
     private enum GameState
     {
@@ -274,6 +276,9 @@ public class Main extends Canvas implements Runnable
                 int gameY = (WINDOW_HEIGHT - GAME_DRAW_HEIGHT) / 2;
                 g.drawImage(image, gameX, gameY, GAME_DRAW_WIDTH, GAME_DRAW_HEIGHT, null);
 
+                if (game != null && game.isMultiplayerEnabled())
+                    renderMultiplayerRoleOverlay(g, gameX, gameY);
+
                 renderPauseOverlay(g);
             }
         }
@@ -294,6 +299,9 @@ public class Main extends Canvas implements Runnable
             int gameX = (WINDOW_WIDTH - GAME_DRAW_WIDTH) / 2;
             int gameY = (WINDOW_HEIGHT - GAME_DRAW_HEIGHT) / 2;
             g.drawImage(image, gameX, gameY, GAME_DRAW_WIDTH, GAME_DRAW_HEIGHT, null);
+
+            if (game != null && game.isMultiplayerEnabled())
+                renderMultiplayerRoleOverlay(g, gameX, gameY);
         }
 
         g.dispose();
@@ -372,7 +380,20 @@ public class Main extends Canvas implements Runnable
         }
         else
         {
-            game.update(inputHandler.keys);
+            if (networkServer != null)
+            {
+                game.update(inputHandler.keys);
+                networkServer.broadcastGameState(buildServerGameState());
+            }
+            else if (networkClient != null && networkClient.isConnected())
+            {
+                networkClient.sendInput(inputHandler.keys);
+            }
+            else
+            {
+                game.update(inputHandler.keys);
+            }
+
             screen.update();
 
             if (inputHandler.keys[KeyEvent.VK_ESCAPE] && !escapeWasDown)
@@ -419,6 +440,7 @@ public class Main extends Canvas implements Runnable
 
     private void startGame()
     {
+        game.disableMultiplayer();
         game.resetRun();
         state = GameState.PLAYING;
         spaceWasDown = inputHandler.keys[KeyEvent.VK_SPACE];
@@ -814,7 +836,7 @@ public class Main extends Canvas implements Runnable
         g.drawString("Estado: " + (networkServer != null && networkServer.getConnectedClients().size() > 0 ? "ESPERANDO" : "INICIALIZANDO..."), x + 20, y + 90);
 
         List<GameNetworkServer.ClientHandler> clients = networkServer != null ? networkServer.getConnectedClients() : new ArrayList<>();
-        g.drawString("Jugadores conectados: " + clients.size() + "/2", x + 20, y + 130);
+        g.drawString("Jugadores conectados: " + clients.size() + "/1", x + 20, y + 130);
 
         int clientY = y + 170;
         for (int i = 0; i < clients.size(); i++)
@@ -825,7 +847,7 @@ public class Main extends Canvas implements Runnable
             clientY += 30;
         }
 
-        if (clients.size() == 2 && isServerReady)
+        if (clients.size() == 1 && isServerReady)
         {
             drawMenuButton(g, x + 20, y + 330, BUTTON_WIDTH, BUTTON_HEIGHT, "INICIAR JUEGO", true);
         }
@@ -850,31 +872,51 @@ public class Main extends Canvas implements Runnable
         g.drawString("CLIENTE", x + 20, y + 42);
 
         g.setFont(g.getFont().deriveFont(20f));
-        
+        g.drawString("Servidores disponibles:", x + 20, y + 92);
+
+        int rowX = x + 20;
+        int rowY = y + 112;
+        int rowW = w - 40;
+
         if (discoveredServers.isEmpty())
         {
-            g.drawString("Escaneando red LAN...", x + 20, y + 100);
+            g.setColor(new java.awt.Color(36, 36, 44, 230));
+            g.fillRoundRect(rowX, rowY, rowW, CLIENT_SERVER_ROW_HEIGHT, 12, 12);
+            g.setColor(java.awt.Color.WHITE);
+            g.drawRoundRect(rowX, rowY, rowW, CLIENT_SERVER_ROW_HEIGHT, 12, 12);
+            g.drawString("No hay servidores - pulsa ACTUALIZAR", rowX + 14, rowY + 25);
         }
         else
         {
-            g.drawString("Servidores disponibles:", x + 20, y + 100);
-
-            int serverY = y + 140;
-            for (int i = 0; i < discoveredServers.size(); i++)
+            int maxRows = Math.min(discoveredServers.size(), 4);
+            for (int i = 0; i < maxRows; i++)
             {
                 NetworkDiscovery.ServerInfo info = discoveredServers.get(i);
-                String selected = i == selectedServerIndex ? ">>> " : "    ";
-                String text = selected + info.serverIp + ":" + info.port + " (" + info.connectedPlayers + "/2)";
-                g.drawString(text, x + 20, serverY);
-                serverY += 35;
-            }
+                int yRow = rowY + i * (CLIENT_SERVER_ROW_HEIGHT + CLIENT_SERVER_ROW_GAP);
+                boolean selected = i == selectedServerIndex;
+                boolean hover = isInside(inputHandler.mouseX, inputHandler.mouseY, rowX, yRow, rowW, CLIENT_SERVER_ROW_HEIGHT);
 
-            if (!discoveredServers.isEmpty())
-            {
-                g.setFont(g.getFont().deriveFont(18f));
-                g.drawString("Arriba/Abajo: navegar   Enter: conectar   ESC: volver", x + 20, y + 360);
+                java.awt.Color fill = selected ? new java.awt.Color(85, 25, 135, 220) : new java.awt.Color(42, 42, 52, 220);
+                if (hover)
+                    fill = selected ? new java.awt.Color(115, 35, 180, 230) : new java.awt.Color(60, 60, 72, 230);
+
+                g.setColor(fill);
+                g.fillRoundRect(rowX, yRow, rowW, CLIENT_SERVER_ROW_HEIGHT, 12, 12);
+                g.setColor(java.awt.Color.WHITE);
+                g.drawRoundRect(rowX, yRow, rowW, CLIENT_SERVER_ROW_HEIGHT, 12, 12);
+
+                String text = info.serverIp + ":" + info.port + "  (" + info.connectedPlayers + "/1)";
+                g.drawString(text, rowX + 14, yRow + 25);
             }
         }
+
+        int buttonsY = y + h - 82;
+        drawMenuButton(g, x + 20, buttonsY, 220, BUTTON_HEIGHT, "ACTUALIZAR", false);
+        drawMenuButton(g, x + 250, buttonsY, 220, BUTTON_HEIGHT, "CONECTAR", true);
+        drawMenuButton(g, x + 480, buttonsY, 190, BUTTON_HEIGHT, "VOLVER", false);
+
+        g.setFont(g.getFont().deriveFont(16f));
+        g.drawString("Click para seleccionar servidor. Enter tambien conecta.", x + 20, y + h - 18);
     }
 
     private void handleMultiplayerMenuInput()
@@ -945,10 +987,11 @@ public class Main extends Canvas implements Runnable
             networkServer = null;
         }
 
-        if (enterDown && !enterWasDown && networkServer != null && networkServer.getConnectedClients().size() == 2 && isServerReady)
+        if (enterDown && !enterWasDown && networkServer != null && networkServer.getConnectedClients().size() == 1 && isServerReady)
         {
             networkServer.startGame();
             state = GameState.PLAYING;
+            game.enableMultiplayer(true);
             game.resetRun();
         }
 
@@ -961,12 +1004,13 @@ public class Main extends Canvas implements Runnable
             int bx = x + 20;
             int by = y + 330;
 
-            if (networkServer != null && networkServer.getConnectedClients().size() == 2 && isServerReady)
+            if (networkServer != null && networkServer.getConnectedClients().size() == 1 && isServerReady)
             {
                 if (isInside(inputHandler.mouseX, inputHandler.mouseY, bx, by, BUTTON_WIDTH, BUTTON_HEIGHT))
                 {
                     networkServer.startGame();
                     state = GameState.PLAYING;
+                    game.enableMultiplayer(true);
                     game.resetRun();
                 }
             }
@@ -1005,6 +1049,45 @@ public class Main extends Canvas implements Runnable
             if (networkClient != null)
                 networkClient.disconnect();
             networkClient = null;
+            game.disableMultiplayer();
+        }
+
+        if (inputHandler.consumeMouseClick())
+        {
+            int w = 700;
+            int h = 400;
+            int x = (WINDOW_WIDTH - w) / 2;
+            int y = (WINDOW_HEIGHT - h) / 2;
+
+            int rowX = x + 20;
+            int rowY = y + 112;
+            int rowW = w - 40;
+
+            int maxRows = Math.min(discoveredServers.size(), 4);
+            for (int i = 0; i < maxRows; i++)
+            {
+                int yRow = rowY + i * (CLIENT_SERVER_ROW_HEIGHT + CLIENT_SERVER_ROW_GAP);
+                if (isInside(inputHandler.mouseX, inputHandler.mouseY, rowX, yRow, rowW, CLIENT_SERVER_ROW_HEIGHT))
+                {
+                    selectedServerIndex = i;
+                    break;
+                }
+            }
+
+            int buttonsY = y + h - 82;
+            if (isInside(inputHandler.mouseX, inputHandler.mouseY, x + 20, buttonsY, 220, BUTTON_HEIGHT))
+            {
+                startClient();
+            }
+            else if (isInside(inputHandler.mouseX, inputHandler.mouseY, x + 250, buttonsY, 220, BUTTON_HEIGHT) && !discoveredServers.isEmpty())
+            {
+                NetworkDiscovery.ServerInfo server = discoveredServers.get(selectedServerIndex);
+                connectToServer(server.serverIp, server.port);
+            }
+            else if (isInside(inputHandler.mouseX, inputHandler.mouseY, x + 480, buttonsY, 190, BUTTON_HEIGHT))
+            {
+                state = GameState.MULTIPLAYER_MENU;
+            }
         }
 
         leftSelectWasDown = upDown;
@@ -1021,7 +1104,7 @@ public class Main extends Canvas implements Runnable
             networkServer = new GameNetworkServer((clientId, playerName) ->
             {
                 System.out.println("Client connected: " + playerName);
-                if (networkServer.getConnectedClients().size() == 2)
+                if (networkServer.getConnectedClients().size() == 1)
                 {
                     isServerReady = true;
                 }
@@ -1030,6 +1113,7 @@ public class Main extends Canvas implements Runnable
                 System.out.println("Client disconnected: " + clientId);
                 isServerReady = false;
             });
+            networkServer.setPlayerInputListener((clientId, keys) -> game.setRemoteInput(keys));
             networkServer.start();
             state = GameState.NETWORK_SERVER;
             System.out.println("Server started");
@@ -1045,14 +1129,7 @@ public class Main extends Canvas implements Runnable
     {
         try
         {
-            System.out.println("Scanning for servers on LAN...");
-            new Thread(() ->
-            {
-                discoveredServers = new ArrayList<>(NetworkDiscovery.discoverServers());
-                selectedServerIndex = 0;
-                System.out.println("Found " + discoveredServers.size() + " servers");
-            }).start();
-            
+            pollServers();
             state = GameState.NETWORK_CLIENT;
         }
         catch (Exception e)
@@ -1079,9 +1156,10 @@ public class Main extends Canvas implements Runnable
                 System.out.println("Game is starting!");
                 state = GameState.PLAYING;
                 game.resetRun();
+                game.enableMultiplayer(false);
             }, (gameState) ->
             {
-                // Update game state from server
+                game.applyGameStateFromServer(gameState);
             }, (error) ->
             {
                 System.err.println("Server error: " + error);
@@ -1089,6 +1167,7 @@ public class Main extends Canvas implements Runnable
             {
                 System.out.println("Disconnected from server");
                 state = GameState.NETWORK_CLIENT;
+                game.disableMultiplayer();
             });
 
             networkClient.connect(serverIp, port, game.getCurrentPlayerName());
@@ -1105,12 +1184,74 @@ public class Main extends Canvas implements Runnable
     {
         try
         {
-            return ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/fondo.png"));
+            return org.drgnst.game.ResourceLoader.loadImage("image/fondo.png");
         }
         catch (IOException e)
         {
             System.err.println("Error cargando fondo.png: " + e.getMessage());
             return null;
         }
+    }
+
+    private void pollServers()
+    {
+        System.out.println("Scanning for servers on LAN...");
+        new Thread(() ->
+        {
+            discoveredServers = new ArrayList<>(NetworkDiscovery.discoverServers());
+            selectedServerIndex = 0;
+            System.out.println("Found " + discoveredServers.size() + " servers");
+        }).start();
+    }
+
+    private NetworkProtocol.GameStateMessage buildServerGameState()
+    {
+        NetworkProtocol.GameStateMessage stateMessage = new NetworkProtocol.GameStateMessage();
+        stateMessage.p1X = game.player.x;
+        stateMessage.p1Y = game.player.y;
+        stateMessage.p1Angle = game.player.rot;
+        stateMessage.p1Health = game.getPlayerHealthPercent();
+        stateMessage.p1Ammo = game.getAmmo();
+        stateMessage.p1Score = game.getScore();
+        stateMessage.p1Kills = game.getKills();
+
+        if (game.getRemotePlayer() != null)
+        {
+            stateMessage.p2X = game.getRemotePlayer().x;
+            stateMessage.p2Y = game.getRemotePlayer().y;
+            stateMessage.p2Angle = game.getRemotePlayer().rot;
+        }
+        else
+        {
+            stateMessage.p2X = game.player.x;
+            stateMessage.p2Y = game.player.y;
+            stateMessage.p2Angle = game.player.rot;
+        }
+        stateMessage.p2Health = game.getPlayerHealthPercent();
+        stateMessage.p2Ammo = game.getAmmo();
+        stateMessage.p2Score = game.getScore();
+        stateMessage.p2Kills = game.getKills();
+
+        stateMessage.numEnemies = game.enemies != null ? game.enemies.size() : 0;
+        stateMessage.gameTicks = game.time;
+        stateMessage.bossDead = game.getBoss() == null || game.getBoss().isDead();
+        return stateMessage;
+    }
+
+    private void renderMultiplayerRoleOverlay(Graphics g, int gameX, int gameY)
+    {
+        String text = game.getLocalRoleLabel() + "   |   " + game.getRemoteRoleLabel();
+        g.setFont(g.getFont().deriveFont(20f));
+        java.awt.FontMetrics metrics = g.getFontMetrics();
+        int w = metrics.stringWidth(text) + 24;
+        int h = 34;
+        int x = gameX + (GAME_DRAW_WIDTH - w) / 2;
+        int y = gameY + 10;
+
+        g.setColor(new java.awt.Color(10, 10, 14, 220));
+        g.fillRoundRect(x, y, w, h, 14, 14);
+        g.setColor(java.awt.Color.WHITE);
+        g.drawRoundRect(x, y, w, h, 14, 14);
+        g.drawString(text, x + 12, y + 23);
     }
 }

@@ -1,5 +1,8 @@
 package org.drgnst.game.gfx;
 
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+
 import org.drgnst.game.Game;
 import org.drgnst.game.Level.Block;
 import org.drgnst.game.Level.Level;
@@ -11,6 +14,7 @@ public class Bitmap3D extends Bitmap
     private double[] depthBuffer;
     private double[] depthBufferWall;
     private double xCam, yCam, zCam, rot, rSin, rCos, fov, xCenter, yCenter;
+    private Bitmap remotePlayerSprite;
 
     public Bitmap3D(int width, int height)
     {
@@ -18,6 +22,7 @@ public class Bitmap3D extends Bitmap
 
         depthBuffer = new double[width * height];
         depthBufferWall = new double[width];
+        remotePlayerSprite = loadBitmap("image/jugador.png");
     }
 
     public void render(Game game)
@@ -96,10 +101,33 @@ public class Bitmap3D extends Bitmap
             renderBossHealthBar(boss);
         }
 
+        if (game.isMultiplayerEnabled() && game.getRemotePlayer() != null && remotePlayerSprite != null)
+        {
+            renderEnemySprite(game.getRemotePlayer().x, game.getRemotePlayer().y, remotePlayerSprite, 0.56, 0.86);
+        }
+
         for (int i = 0; i < game.level.medkits.size(); i++)
         {
             org.drgnst.game.entities.Medkit medkit = game.level.medkits.get(i);
             renderMedkitSprite(medkit.x, medkit.y, medkit.getSprite());
+        }
+    }
+
+    private Bitmap loadBitmap(String path)
+    {
+        try
+        {
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage(path);
+            if (image == null)
+                return null;
+
+            Bitmap bitmap = new Bitmap(image.getWidth(), image.getHeight());
+            image.getRGB(0, 0, bitmap.width, bitmap.height, bitmap.pixels, 0, bitmap.width);
+            return bitmap;
+        }
+        catch (IOException e)
+        {
+            return null;
         }
     }
 

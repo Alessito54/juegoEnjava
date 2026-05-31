@@ -26,6 +26,7 @@ import org.drgnst.game.entities.Medkit;
 import org.drgnst.game.gfx.Weapon;
 import org.drgnst.game.gfx.Bitmap;
 import org.drgnst.game.audio.AudioManager;
+import org.drgnst.game.network.NetworkProtocol;
 
 
 public class Game
@@ -47,6 +48,7 @@ public class Game
 
     public Level level;
     public Player player;
+    public Player player2;
     public List<Enemy> enemies;
     private Boss boss;
     public Weapon weapon;
@@ -73,6 +75,11 @@ public class Game
     private boolean bossDefeatedRewarded;
     private boolean bossSpawnedOnce;
     private final Map<String, PlayerProfile> playerProfiles;
+    private volatile boolean[] remoteKeys = new boolean[65535];
+    private volatile boolean multiplayerEnabled = false;
+    private volatile boolean localIsServer = true;
+    private volatile String localRoleLabel = "JUGADOR 1 (SERVIDOR)";
+    private volatile String remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
 
     public Game()
     {
@@ -112,6 +119,23 @@ public class Game
 
 
         player.update(up, down, left, right, turnLeft, turnRight, space);
+
+        if (multiplayerEnabled && player2 != null)
+        {
+            boolean[] rk = remoteKeys;
+            if (rk != null && rk.length > VK_SPACE)
+            {
+                boolean rup = rk[VK_W];
+                boolean rdown = rk[VK_S];
+                boolean rleft = rk[VK_A];
+                boolean rright = rk[VK_D];
+                boolean rturnLeft = rk[VK_Q];
+                boolean rturnRight = rk[VK_E];
+                boolean rspace = rk[VK_SPACE];
+                player2.update(rup, rdown, rleft, rright, rturnLeft, rturnRight, rspace);
+            }
+        }
+
         weapon.update(player.x, player.y, moving);
         updateMedkits();
         updateEnemies();
@@ -622,6 +646,94 @@ public class Game
         audioManager.stopMusic();
     }
 
+    public void enableMultiplayer(boolean localAsServer)
+    {
+        multiplayerEnabled = true;
+        localIsServer = localAsServer;
+        if (player2 == null)
+            player2 = new Player(this);
+
+        if (localAsServer)
+        {
+            localRoleLabel = "JUGADOR 1 (SERVIDOR)";
+            remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
+        }
+        else
+        {
+            localRoleLabel = "JUGADOR 2 (CLIENTE)";
+            remoteRoleLabel = "JUGADOR 1 (SERVIDOR)";
+        }
+    }
+
+    public void disableMultiplayer()
+    {
+        multiplayerEnabled = false;
+        player2 = null;
+        remoteKeys = new boolean[65535];
+        localRoleLabel = "JUGADOR 1 (SERVIDOR)";
+        remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
+    }
+
+    public void setRemoteInput(boolean[] keys)
+    {
+        if (keys == null)
+            return;
+
+        boolean[] copy = new boolean[Math.max(65535, keys.length)];
+        System.arraycopy(keys, 0, copy, 0, keys.length);
+        remoteKeys = copy;
+    }
+
+    public void applyGameStateFromServer(NetworkProtocol.GameStateMessage state)
+    {
+        if (state == null)
+            return;
+
+        if (player == null)
+            player = new Player(this);
+        if (player2 == null)
+            player2 = new Player(this);
+
+        if (localIsServer)
+        {
+            player.x = state.p1X;
+            player.y = state.p1Y;
+            player.rot = state.p1Angle;
+            player2.x = state.p2X;
+            player2.y = state.p2Y;
+            player2.rot = state.p2Angle;
+        }
+        else
+        {
+            player.x = state.p2X;
+            player.y = state.p2Y;
+            player.rot = state.p2Angle;
+            player2.x = state.p1X;
+            player2.y = state.p1Y;
+            player2.rot = state.p1Angle;
+        }
+    }
+
+    public boolean isMultiplayerEnabled()
+    {
+        return multiplayerEnabled;
+    }
+
+    public String getLocalRoleLabel()
+    {
+        return localRoleLabel;
+    }
+
+    public String getRemoteRoleLabel()
+    {
+        return remoteRoleLabel;
+    }
+
+    public Player getRemotePlayer()
+    {
+        return player2;
+    }
+
     private void addScore(int points)
     {
         if (points <= 0)
@@ -684,6 +796,10 @@ public class Game
     {
         level = Level.loadLevel("level0");
         player = new Player(this);
+        if (multiplayerEnabled)
+            player2 = new Player(this);
+        else
+            player2 = null;
         enemies = new ArrayList<Enemy>();
         boss = null;
         bossMusicPlaying = false;
