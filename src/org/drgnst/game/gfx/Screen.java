@@ -43,26 +43,6 @@ public class Screen extends Bitmap
         
         // Renderizar el arma
         game.weapon.render(this);
-        // Kills + Deaths (compact, top-right)
-        int hudScale = 1;
-        int spacing = 2;
-        drawNumberRight(width - 6, 6, game.getKills(), 0xffffff, hudScale);
-        drawNumberRight(width - 6, 14, game.getDeaths(), 0xff8888, hudScale);
-
-        // Score y max score (top-left)
-        drawLabelAndNumber(6, 6, "SCORE", game.getScore(), 0xffd24d, 1);
-        drawLabelAndNumber(6, 14, "MAX", game.getMaxScore(), 0x7de3ff, 1);
-
-        if (game.getBoss() != null && !game.getBoss().isExpired())
-        {
-            drawLabelAndNumber(width / 2 - 22, 6, "BOSS", game.getBoss().getHealthPercent(), 0xd97cff, 1);
-        }
-
-        // Barra de vida más discreta (lower-left, above bullets)
-        drawHealthBar(6, height - 34, 60, 6, game.getPlayerHealthPercent());
-
-        // Munición: 5 balas pequeñas en la esquina inferior izquierda
-        drawAmmoHud(game.getAmmo(), game.getMaxAmmo());
 
         // Jumpscare a pantalla completa cuando muere
         if (game.getJumpscareTimer() > 0 && game.getJumpscareImage() != null)
@@ -189,6 +169,101 @@ public class Screen extends Bitmap
         drawText(x, y, label, color, scale);
         int labelWidth = label.length() * (3 * scale + 1);
         drawNumber(x + labelWidth + 2, y, value, color, scale);
+    }
+
+    private void drawLabelAndText(int x, int y, String label, String value, int color, int scale)
+    {
+        drawText(x, y, label, color, scale);
+        int labelWidth = label.length() * (3 * scale + 1);
+        drawText(x + labelWidth + 2, y, value == null ? "" : value, color, scale);
+    }
+
+    private String clipText(String value, int maxChars)
+    {
+        if (value == null)
+            return "";
+        if (maxChars <= 0 || value.length() <= maxChars)
+            return value;
+        return value.substring(0, maxChars);
+    }
+
+    private void drawSidePanelLeft(Game game)
+    {
+        int panelW = 36;
+        fillRect(0, 0, panelW, height, 0x0f0f13);
+
+        int y = 4;
+        drawText(3, y, "SC", 0xffd24d, 1);
+        y += 10;
+        drawNumberRight(panelW - 3, y, game.getScore(), 0xffd24d, 1);
+        y += 12;
+
+        drawText(3, y, "MX", 0x7de3ff, 1);
+        y += 10;
+        drawNumberRight(panelW - 3, y, game.getMaxScore(), 0x7de3ff, 1);
+        y += 12;
+
+        drawText(3, y, "PL", 0xffffff, 1);
+        y += 10;
+        drawText(3, y, clipText(game.getCurrentPlayerName(), 4), 0xffffff, 1);
+        y += 14;
+
+        drawText(3, y, "TP", 0x7de3ff, 1);
+        y += 10;
+        drawText(3, y, clipText(game.getTopPlayerName(), 4), 0x7de3ff, 1);
+    }
+
+    private void drawSidePanelRight(Game game)
+    {
+        int panelW = 36;
+        int startX = width - panelW;
+        fillRect(startX, 0, panelW, height, 0x0f0f13);
+
+        int y = 4;
+        drawText(startX + 3, y, "K", 0xffffff, 1);
+        y += 10;
+        drawNumberRight(width - 3, y, game.getKills(), 0xffffff, 1);
+        y += 12;
+
+        drawText(startX + 3, y, "D", 0xff8888, 1);
+        y += 10;
+        drawNumberRight(width - 3, y, game.getDeaths(), 0xff8888, 1);
+        y += 12;
+
+        drawText(startX + 3, y, "HP", 0x6de36d, 1);
+        y += 10;
+        drawHealthMini(game.getPlayerHealthPercent(), startX + 3, y, panelW - 6, 4);
+        y += 10;
+
+        drawText(startX + 3, y, "AM", 0xf5b428, 1);
+        y += 10;
+        drawAmmoMini(game.getAmmo(), game.getMaxAmmo(), startX + 3, y, panelW - 6);
+
+        if (game.getBoss() != null && !game.getBoss().isExpired())
+        {
+            y += 20;
+            drawText(startX + 3, y, "BS", 0xd97cff, 1);
+            y += 10;
+            drawNumberRight(width - 3, y, game.getBoss().getHealthPercent(), 0xd97cff, 1);
+        }
+    }
+
+    private void drawHealthMini(int percent, int x, int y, int w, int h)
+    {
+        fillRect(x, y, w, h, 0x2a2a2a);
+        int fill = (int) (w * (Math.max(0, Math.min(100, percent)) / 100.0));
+        int color = percent > 60 ? 0x28be46 : (percent > 30 ? 0xf5b428 : 0xdc3c3c);
+        fillRect(x, y, fill, h, color);
+    }
+
+    private void drawAmmoMini(int ammo, int maxAmmo, int x, int y, int w)
+    {
+        if (maxAmmo <= 0)
+            return;
+
+        int filled = (int) (w * (Math.max(0, Math.min(maxAmmo, ammo)) / (double) maxAmmo));
+        fillRect(x, y, w, 4, 0x2a2a2a);
+        fillRect(x, y, filled, 4, 0xf5b428);
     }
 
     private void drawNumber(int x, int y, int value, int color, int scale)

@@ -3,7 +3,9 @@ package org.drgnst.game;
 import static java.awt.event.KeyEvent.*;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
@@ -33,13 +35,15 @@ public class Game
     private static final double SHOT_MAX_DISTANCE = 6.0;
     private static final double SHOT_ANGLE_COS = 0.92;
     private static final int MAX_AMMO = 5;
-    private static final int RELOAD_DURATION_FRAMES = 343; // ~5.72s, igual al audio
+    private static final int RELOAD_DURATION_FRAMES = 120; // ~2.0s
     private static final int SCORE_PER_KILL = 100;
     private static final int SCORE_PER_BOSS_KILL = 1000;
     private static final int BOSS_TRIGGER_KILLS = 5;
     private static final String NORMAL_BACKGROUND_MUSIC = "/home/alessandro/Java-3D-Rendering/DoomEternalOST.wav";
     private static final String BOSS_BACKGROUND_MUSIC = "/home/alessandro/Java-3D-Rendering/sonidos/bossSound.wav";
     private static final Path SCORE_FILE = Paths.get("/home/alessandro/Java-3D-Rendering/res/score.json");
+    private static final Path PLAYER_FILE = Paths.get("/home/alessandro/Java-3D-Rendering/res/players.json");
+    private static final String DEFAULT_PLAYER_NAME = "Jugador";
 
     public Level level;
     public Player player;
@@ -62,20 +66,23 @@ public class Game
     private int reloadTimer;
     private int score;
     private int maxScore;
+    private String currentPlayerName;
+    private int currentPlayerBestScore;
+    private String topPlayerName;
     private boolean bossMusicPlaying;
     private boolean bossDefeatedRewarded;
     private boolean bossSpawnedOnce;
+    private final Map<String, PlayerProfile> playerProfiles;
 
     public Game()
     {
+        playerProfiles = new LinkedHashMap<String, PlayerProfile>();
         level = Level.loadLevel("level0");
-        player = new Player(this);
         enemies = new ArrayList<Enemy>();
         weapon = new Weapon();
         audioManager = new AudioManager();
         random = new Random();
         enemySpawnTimer = 60;
-        playerHealth = PLAYER_MAX_HEALTH;
         kills = 0;
         deaths = 0;
         jumpscareTimer = 0;
@@ -84,15 +91,10 @@ public class Game
         reloadTimer = 0;
         weapon.setReloading(false);
         score = 0;
-        maxScore = loadMaxScore();
         loadJumpscareImage();
-        boss = null;
-        bossMusicPlaying = false;
-        bossDefeatedRewarded = false;
-        bossSpawnedOnce = false;
-
-        // Iniciar música de fondo
-        audioManager.playBackgroundMusic(NORMAL_BACKGROUND_MUSIC);
+        loadPlayerProfiles();
+        selectPlayer(currentPlayerName);
+        resetRunState();
     }
 
     public void update(boolean[] keys)
@@ -114,6 +116,12 @@ public class Game
         updateMedkits();
         updateEnemies();
         updateBoss();
+
+        if (playerHealth <= 0)
+        {
+            handlePlayerDeath();
+            return;
+        }
 
         if (reloadTimer > 0)
         {
@@ -143,17 +151,6 @@ public class Game
         // Reducir cooldown de disparo
         if (firingCooldown > 0)
             firingCooldown--;
-
-        // Si el jugador muere, registrar muerte y respawnear en spawn
-        if (playerHealth <= 0)
-        {
-            recordDeath();
-            deathFlashTimer = 30;
-            player.x = level.xSpawn;
-            player.y = level.ySpawn;
-            playerHealth = PLAYER_MAX_HEALTH;
-            System.out.println("✗ Has muerto. Respawn en spawn.");
-        }
 
         if (deathFlashTimer > 0)
             deathFlashTimer--;
@@ -463,20 +460,77 @@ public class Game
         return maxScore;
     }
 
+    public String getCurrentPlayerName()
+    {
+        return currentPlayerName;
+    }
+
+    public int getCurrentPlayerBestScore()
+    {
+        return currentPlayerBestScore;
+    }
+
+    public String getTopPlayerName()
+    {
+        return topPlayerName;
+    }
+
+    public List<String> getPlayerNames()
+    {
+        return new ArrayList<String>(playerProfiles.keySet());
+    }
+
+    public int getPlayerBestScore(String playerName)
+    {
+        PlayerProfile profile = playerProfiles.get(sanitizePlayerName(playerName));
+        return profile == null ? 0 : profile.maxScore;
+    }
+
+    public int getTopPlayerScore()
+    {
+        return maxScore;
+    }
+
+    public void selectPlayer(String playerName)
+    {
+        String sanitizedName = sanitizePlayerName(playerName);
+        if (sanitizedName.isEmpty())
+            sanitizedName = DEFAULT_PLAYER_NAME;
+
+        PlayerProfile profile = getOrCreateProfile(sanitizedName);
+        currentPlayerName = sanitizedName;
+        currentPlayerBestScore = profile.maxScore;
+        recalculateTopPlayer();
+        savePlayerProfiles();
+    }
+
+    public void resetRun()
+    {
+        resetRunState();
+    }
+
     public void recordDeath()
     {
+        handlePlayerDeath();
+    }
+
+    public void syncInputState(boolean[] keys)
+    {
+        if (keys == null)
+            return;
+
+        if (VK_SPACE >= 0 && VK_SPACE < keys.length)
+            spaceWasDown = keys[VK_SPACE];
+    }
+
+    private void handlePlayerDeath()
+    {
         deaths++;
-        score = 0;
-        jumpscareTimer = 180; // Mostrar jumpscare durante 3 segundos (180 frames a 60 FPS)
-        // Reproducir jumpscare con delay para que se escuche
-        new Thread(() -> {
-            try {
-                audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/jumpscare.wav");
-            } catch (Exception e) {
-                System.err.println("Error reproduciendo jumpscare: " + e.getMessage());
-            }
-        }).start();
-        System.out.println("☠ ¡JUMPSCARE! Sonido y imagen activados por 3 segundos");
+        updateCurrentPlayerBestScore(score);
+        saveMaxScore();
+        savePlayerProfiles();
+        resetRunState();
+        System.out.println("☠ Has muerto. Reiniciando partida completa.");
     }
 
     public int getDeaths()
@@ -563,6 +617,7 @@ public class Game
      */
     public void cleanup()
     {
+        savePlayerProfiles();
         saveMaxScore();
         audioManager.stopMusic();
     }
@@ -573,6 +628,7 @@ public class Game
             return;
 
         score += points;
+        updateCurrentPlayerBestScore(score);
         if (score > maxScore)
         {
             maxScore = score;
@@ -621,6 +677,198 @@ public class Game
         catch (IOException e)
         {
             System.err.println("✗ Error guardando maxScore: " + e.getMessage());
+        }
+    }
+
+    private void resetRunState()
+    {
+        level = Level.loadLevel("level0");
+        player = new Player(this);
+        enemies = new ArrayList<Enemy>();
+        boss = null;
+        bossMusicPlaying = false;
+        bossDefeatedRewarded = false;
+        bossSpawnedOnce = false;
+        enemySpawnTimer = 60;
+        time = 0;
+        playerHealth = PLAYER_MAX_HEALTH;
+        kills = 0;
+        score = 0;
+        firingCooldown = 0;
+        ammo = MAX_AMMO;
+        reloadTimer = 0;
+        deathFlashTimer = 0;
+        jumpscareTimer = 0;
+        spaceWasDown = false;
+        weapon.setReloading(false);
+
+        audioManager.stopMusic();
+        audioManager.playBackgroundMusic(NORMAL_BACKGROUND_MUSIC);
+    }
+
+    private void loadPlayerProfiles()
+    {
+        playerProfiles.clear();
+
+        boolean loadedFromFile = false;
+
+        try
+        {
+            if (Files.exists(PLAYER_FILE))
+            {
+                String content = new String(Files.readAllBytes(PLAYER_FILE), StandardCharsets.UTF_8);
+                Matcher currentMatcher = Pattern.compile("\\\"currentPlayer\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"").matcher(content);
+                if (currentMatcher.find())
+                    currentPlayerName = sanitizePlayerName(currentMatcher.group(1));
+
+                Matcher playerMatcher = Pattern.compile("\\{\\s*\\\"name\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"\\s*,\\s*\\\"maxScore\\\"\\s*:\\s*(\\d+)\\s*\\}").matcher(content);
+                while (playerMatcher.find())
+                {
+                    String name = sanitizePlayerName(playerMatcher.group(1));
+                    if (name.isEmpty())
+                        continue;
+
+                    int bestScore = Integer.parseInt(playerMatcher.group(2));
+                    playerProfiles.put(name, new PlayerProfile(name, bestScore));
+                }
+
+                loadedFromFile = !playerProfiles.isEmpty();
+            }
+        }
+        catch (Exception e)
+        {
+            System.err.println("✗ Error cargando jugadores: " + e.getMessage());
+        }
+
+        if (!loadedFromFile)
+        {
+            int legacyMax = loadMaxScore();
+            playerProfiles.put(DEFAULT_PLAYER_NAME, new PlayerProfile(DEFAULT_PLAYER_NAME, legacyMax));
+            currentPlayerName = DEFAULT_PLAYER_NAME;
+        }
+
+        if (currentPlayerName == null || !playerProfiles.containsKey(currentPlayerName))
+            currentPlayerName = playerProfiles.keySet().iterator().next();
+
+        recalculateTopPlayer();
+        savePlayerProfiles();
+    }
+
+    private void savePlayerProfiles()
+    {
+        try
+        {
+            if (PLAYER_FILE.getParent() != null)
+                Files.createDirectories(PLAYER_FILE.getParent());
+
+            StringBuilder json = new StringBuilder();
+            json.append("{\n");
+            json.append("  \"currentPlayer\": \"").append(escapeJson(currentPlayerName)).append("\",\n");
+            json.append("  \"players\": [\n");
+
+            int index = 0;
+            for (PlayerProfile profile : playerProfiles.values())
+            {
+                json.append("    {\"name\": \"").append(escapeJson(profile.name)).append("\", \"maxScore\": ").append(Math.max(0, profile.maxScore)).append("}");
+                index++;
+                if (index < playerProfiles.size())
+                    json.append(",");
+                json.append("\n");
+            }
+
+            json.append("  ]\n");
+            json.append("}\n");
+
+            Files.write(PLAYER_FILE, json.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        catch (IOException e)
+        {
+            System.err.println("✗ Error guardando jugadores: " + e.getMessage());
+        }
+    }
+
+    private void updateCurrentPlayerBestScore(int runScore)
+    {
+        if (currentPlayerName == null)
+            currentPlayerName = DEFAULT_PLAYER_NAME;
+
+        PlayerProfile profile = getOrCreateProfile(currentPlayerName);
+        if (runScore > profile.maxScore)
+        {
+            profile.maxScore = runScore;
+            currentPlayerBestScore = runScore;
+            savePlayerProfiles();
+        }
+        else
+        {
+            currentPlayerBestScore = profile.maxScore;
+        }
+
+        recalculateTopPlayer();
+    }
+
+    private PlayerProfile getOrCreateProfile(String name)
+    {
+        String key = sanitizePlayerName(name);
+        if (key.isEmpty())
+            key = DEFAULT_PLAYER_NAME;
+
+        PlayerProfile profile = playerProfiles.get(key);
+        if (profile == null)
+        {
+            profile = new PlayerProfile(key, 0);
+            playerProfiles.put(key, profile);
+        }
+        return profile;
+    }
+
+    private void recalculateTopPlayer()
+    {
+        String bestName = DEFAULT_PLAYER_NAME;
+        int bestScore = 0;
+
+        for (PlayerProfile profile : playerProfiles.values())
+        {
+            if (profile.maxScore >= bestScore)
+            {
+                bestScore = profile.maxScore;
+                bestName = profile.name;
+            }
+        }
+
+        topPlayerName = bestName;
+        maxScore = bestScore;
+    }
+
+    private String sanitizePlayerName(String value)
+    {
+        if (value == null)
+            return "";
+
+        String sanitized = value.trim().replaceAll("\\s+", " ");
+        sanitized = sanitized.replaceAll("[^a-zA-Z0-9 _-]", "");
+        if (sanitized.length() > 18)
+            sanitized = sanitized.substring(0, 18);
+        return sanitized;
+    }
+
+    private String escapeJson(String value)
+    {
+        if (value == null)
+            return "";
+
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static class PlayerProfile
+    {
+        private final String name;
+        private int maxScore;
+
+        private PlayerProfile(String name, int maxScore)
+        {
+            this.name = name;
+            this.maxScore = Math.max(0, maxScore);
         }
     }
 }

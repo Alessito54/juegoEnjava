@@ -20,6 +20,7 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
     public int mouseY;
     public boolean mousePressed;
     private boolean mouseClickPending;
+    private StringBuilder typedCharacters;
 
     public InputHandler()
     {
@@ -28,6 +29,7 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
         mouseY = 0;
         mousePressed = false;
         mouseClickPending = false;
+        typedCharacters = new StringBuilder();
     }
 
     @Override
@@ -111,6 +113,9 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
     @Override
     public void keyTyped(KeyEvent arg0)
     {
+        char c = arg0.getKeyChar();
+        if (!Character.isISOControl(c))
+            typedCharacters.append(c);
     }
 
     public boolean consumeMouseClick()
@@ -121,6 +126,16 @@ public class InputHandler implements KeyListener, FocusListener, MouseMotionList
             return true;
         }
         return false;
+    }
+
+    public String consumeTypedCharacters()
+    {
+        if (typedCharacters.length() == 0)
+            return "";
+
+        String typed = typedCharacters.toString();
+        typedCharacters.setLength(0);
+        return typed;
     }
 
 }
