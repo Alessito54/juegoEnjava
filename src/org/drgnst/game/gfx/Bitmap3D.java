@@ -1,20 +1,21 @@
 package org.drgnst.game.gfx;
 
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+
 import org.drgnst.game.Game;
 import org.drgnst.game.Level.Block;
 import org.drgnst.game.Level.Level;
 import org.drgnst.game.entities.Enemy;
+import org.drgnst.game.entities.Boss;
 
-/**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ���� 5:32:03
- */
 public class Bitmap3D extends Bitmap
 {
     private double[] depthBuffer;
     private double[] depthBufferWall;
     private double xCam, yCam, zCam, rot, rSin, rCos, fov, xCenter, yCenter;
+    private Bitmap remotePlayerSprite;
+    private Bitmap remotePlayerFireSprite;
 
     public Bitmap3D(int width, int height)
     {
@@ -22,6 +23,8 @@ public class Bitmap3D extends Bitmap
 
         depthBuffer = new double[width * height];
         depthBufferWall = new double[width];
+        remotePlayerSprite = loadBitmap("image/jugador.png");
+        remotePlayerFireSprite = loadBitmap("image/jugadorDisparo.png");
     }
 
     public void render(Game game)
@@ -93,10 +96,45 @@ public class Bitmap3D extends Bitmap
             renderEnemyHealthBar(enemy);
         }
 
+        Boss boss = game.getBoss();
+        if (boss != null && !boss.isExpired())
+        {
+            renderEnemySprite(boss.x, boss.y, boss.getSprite());
+            renderBossHealthBar(boss);
+        }
+
+        if (game.isMultiplayerEnabled() && game.getRemotePlayer() != null && remotePlayerSprite != null)
+        {
+            Bitmap remoteSprite = remotePlayerSprite;
+            if (game.isRemoteReloading() && remotePlayerFireSprite != null)
+                remoteSprite = remotePlayerFireSprite;
+            else if (game.isRemoteFiring() && remotePlayerFireSprite != null)
+                remoteSprite = remotePlayerFireSprite;
+            renderEnemySprite(game.getRemotePlayer().x, game.getRemotePlayer().y, remoteSprite, 0.56, 0.86);
+        }
+
         for (int i = 0; i < game.level.medkits.size(); i++)
         {
             org.drgnst.game.entities.Medkit medkit = game.level.medkits.get(i);
             renderMedkitSprite(medkit.x, medkit.y, medkit.getSprite());
+        }
+    }
+
+    private Bitmap loadBitmap(String path)
+    {
+        try
+        {
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage(path);
+            if (image == null)
+                return null;
+
+            Bitmap bitmap = new Bitmap(image.getWidth(), image.getHeight());
+            image.getRGB(0, 0, bitmap.width, bitmap.height, bitmap.pixels, 0, bitmap.width);
+            return bitmap;
+        }
+        catch (IOException e)
+        {
+            return null;
         }
     }
 
@@ -158,6 +196,11 @@ public class Bitmap3D extends Bitmap
 
     public void renderEnemySprite(double x, double z, Bitmap sprite)
     {
+        renderEnemySprite(x, z, sprite, 0.62, 0.82);
+    }
+
+    public void renderEnemySprite(double x, double z, Bitmap sprite, double worldWidth, double worldHeight)
+    {
         if (sprite == null)
             return;
 
@@ -170,9 +213,6 @@ public class Bitmap3D extends Bitmap
 
         if (zz < 0.1)
             return;
-
-        double worldWidth = 0.62;
-        double worldHeight = 0.82;
 
         double xPixelCenter = xx / zz * fov + xCenter;
         double xPixel0 = xPixelCenter - (worldWidth / 2.0) / zz * fov;
@@ -232,6 +272,81 @@ public class Bitmap3D extends Bitmap
                     pixels[xp + yp * width] = color & 0xffffff;
                     depthBuffer[xp + yp * width] = depth;
                 }
+            }
+        }
+    }
+
+    private void renderBossHealthBar(Boss boss)
+    {
+        double xo = boss.x - xCam;
+        double yo = 0.62 + zCam / 8;
+        double zo = boss.y - yCam;
+
+        double xx = xo * rCos + zo * rSin;
+        double zz = -xo * rSin + zo * rCos;
+
+        if (zz < 0.1)
+            return;
+
+        double xPixelCenter = xx / zz * fov + xCenter;
+        int barPixelX = (int) xPixelCenter;
+        int barPixelY = (int) ((yo / zz * fov + yCenter) - 30);
+
+        if (barPixelX < 0 || barPixelX > width || barPixelY < 0 || barPixelY > height)
+            return;
+
+        int barWidth = 28;
+        int barHeight = 4;
+        int healthPercent = boss.getHealthPercent();
+        int fillWidth = (int) (barWidth * (healthPercent / 100.0));
+
+        // Dibujar borde exterior
+        for (int x = -1; x < barWidth + 1; x++)
+        {
+            for (int y = -1; y < barHeight + 1; y++)
+            {
+                int px = barPixelX - barWidth / 2 + x;
+                int py = barPixelY + y;
+
+                if (px < 0 || px >= width || py < 0 || py >= height)
+                    continue;
+
+                pixels[px + py * width] = 0x330055;
+            }
+        }
+
+        // Dibujar barra de fondo
+        for (int x = 0; x < barWidth; x++)
+        {
+            for (int y = 0; y < barHeight; y++)
+            {
+                int px = barPixelX - barWidth / 2 + x;
+                int py = barPixelY + y;
+
+                if (px < 0 || px >= width || py < 0 || py >= height)
+                    continue;
+
+                pixels[px + py * width] = 0x0a0a0a;
+            }
+        }
+
+        // Dibujar barra de vida
+        for (int x = 0; x < fillWidth; x++)
+        {
+            for (int y = 0; y < barHeight; y++)
+            {
+                int px = barPixelX - barWidth / 2 + x;
+                int py = barPixelY + y;
+
+                if (px < 0 || px >= width || py < 0 || py >= height)
+                    continue;
+
+                if (healthPercent > 60)
+                    pixels[px + py * width] = 0xaa33ff;
+                else if (healthPercent > 30)
+                    pixels[px + py * width] = 0xff44ff;
+                else
+                    pixels[px + py * width] = 0xff0033;
             }
         }
     }
@@ -516,10 +631,18 @@ public class Bitmap3D extends Bitmap
 
     public void renderFog(int shader)
     {
+        // Fog parameters
+        final double fogStart = 6.0; // where fog begins
+        final double fogRange = 12.0; // range over which fog fully applies
+        final int fogR = 160; // red tint
+        final int fogG = 20;
+        final int fogB = 20;
+
         for (int i = 0; i < depthBuffer.length; i++)
         {
             double t = (i % width - width / 2.0) / (width / 1.4);
 
+            // brightness from original shader
             int brightness = (int) (255 - (depthBuffer[i] * 3 * (t * t * 3 + 1.2)));
 
             int xo = i % width;
@@ -536,11 +659,34 @@ public class Bitmap3D extends Bitmap
             int r = (color >> 16) & 0xff;
             int g = (color >> 8) & 0xff;
             int b = (color) & 0xff;
+
+            // Apply brightness
             r = (int) (r / 255.0 * brightness);
             g = (int) (g / 255.0 * brightness);
             b = (int) (b / 255.0 * brightness);
 
-            pixels[i] = r << 16 | g << 8 | b;
+            // Compute fog factor from depth (0 = no fog, 1 = full fog)
+            double depth = depthBuffer[i];
+            double fogFactor = (depth - fogStart) / fogRange;
+            if (fogFactor < 0)
+                fogFactor = 0;
+            if (fogFactor > 1)
+                fogFactor = 1;
+
+            // Slight screen-space variation for atmosphere
+            double screenVary = ((xo * 31 + yo * 17) & 31) / 255.0;
+            fogFactor = Math.min(1.0, fogFactor + screenVary * 0.06);
+
+            // Blend towards red fog color
+            int nr = (int) (r * (1 - fogFactor) + fogR * fogFactor);
+            int ng = (int) (g * (1 - fogFactor) + fogG * fogFactor);
+            int nb = (int) (b * (1 - fogFactor) + fogB * fogFactor);
+
+            if (nr < 0) nr = 0; if (nr > 255) nr = 255;
+            if (ng < 0) ng = 0; if (ng > 255) ng = 255;
+            if (nb < 0) nb = 0; if (nb > 255) nb = 255;
+
+            pixels[i] = nr << 16 | ng << 8 | nb;
         }
     }
 }

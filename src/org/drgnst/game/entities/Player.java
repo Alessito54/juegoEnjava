@@ -4,9 +4,7 @@ import org.drgnst.game.Game;
 import org.drgnst.game.Level.Level;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:32:11
+ * Player entity
  */
 public class Player
 {

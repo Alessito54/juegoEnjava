@@ -1,0 +1,210 @@
+package org.drgnst.game.audio;
+
+import javax.sound.sampled.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.BufferedInputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Gestor de audio para reproducir música de fondo y efectos de sonido
+ */
+public class AudioManager
+{
+    private Clip musicClip;
+    private boolean isPlaying = false;
+    private List<Clip> activeSoundClips = new ArrayList<>();
+    
+    /**
+     * Carga y reproduce un archivo de audio en bucle
+     */
+    public void playBackgroundMusic(String filePath)
+    {
+        try
+        {
+            AudioInputStream audioInputStream = openAudioStream(filePath);
+            if (audioInputStream == null)
+            {
+                System.err.println("Archivo de audio no encontrado en FS ni en recursos: " + filePath);
+                return;
+            }
+            musicClip = AudioSystem.getClip();
+            musicClip.open(audioInputStream);
+            musicClip.loop(Clip.LOOP_CONTINUOUSLY);  // Reproducir en bucle infinito
+            musicClip.start();
+            isPlaying = true;
+            System.out.println("Música: " + filePath + " está siendo reproducida");
+        }
+        catch (UnsupportedAudioFileException e)
+        {
+            System.err.println("Formato de audio no soportado: " + e.getMessage());
+        }
+        catch (IOException e)
+        {
+            System.err.println("Error al leer archivo de audio: " + e.getMessage());
+        }
+        catch (LineUnavailableException e)
+        {
+            System.err.println("Línea de audio no disponible: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Reproduce un sonido corto una sola vez.
+     */
+    public void playSoundOnce(String filePath)
+    {
+        new Thread(() -> {
+            try
+            {
+                AudioInputStream audioInputStream = openAudioStream(filePath);
+                if (audioInputStream == null)
+                {
+                    System.err.println("Archivo de audio no encontrado en FS ni en recursos: " + filePath);
+                    return;
+                }
+                Clip clip = AudioSystem.getClip();
+                
+                synchronized (activeSoundClips)
+                {
+                    activeSoundClips.add(clip);
+                }
+                
+                clip.open(audioInputStream);
+                clip.addLineListener(event -> {
+                    if (event.getType() == LineEvent.Type.STOP)
+                    {
+                        try
+                        {
+                            clip.close();
+                            audioInputStream.close();
+                            synchronized (activeSoundClips)
+                            {
+                                activeSoundClips.remove(clip);
+                            }
+                        }
+                        catch (IOException e)
+                        {
+                            System.err.println("Error al cerrar clip: " + e.getMessage());
+                        }
+                    }
+                });
+                
+                clip.start();
+                System.out.println("♪ Sonido reproducido: " + filePath);
+            }
+            catch (UnsupportedAudioFileException e)
+            {
+                System.err.println("Formato de audio no soportado: " + e.getMessage());
+            }
+            catch (IOException e)
+            {
+                System.err.println("Error al leer archivo de audio: " + e.getMessage());
+            }
+            catch (LineUnavailableException e)
+            {
+                System.err.println("Línea de audio no disponible: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    /**
+     * Intenta abrir un AudioInputStream desde el filesystem o desde el classpath.
+     * Devuelve null si no se encuentra.
+     */
+    private AudioInputStream openAudioStream(String path) throws UnsupportedAudioFileException, IOException
+    {
+        // Primer intento: archivo en disco
+        File audioFile = new File(path);
+        if (audioFile.exists())
+        {
+            return AudioSystem.getAudioInputStream(audioFile);
+        }
+
+        // Segundo intento: recurso en classpath (dentro del JAR)
+        InputStream is = AudioManager.class.getResourceAsStream(path.startsWith("/") ? path : "/" + path);
+        if (is == null)
+        {
+            // try without leading slash
+            is = AudioManager.class.getResourceAsStream(path);
+        }
+
+        if (is == null)
+        {
+            return null;
+        }
+
+        BufferedInputStream bis = new BufferedInputStream(is);
+        return AudioSystem.getAudioInputStream(bis);
+    }
+    
+    /**
+     * Detiene la música
+     */
+    public void stopMusic()
+    {
+        if (musicClip != null && isPlaying)
+        {
+            musicClip.stop();
+            musicClip.close();
+            isPlaying = false;
+        }
+        
+        // Cerrar todos los clips activos de sonidos
+        synchronized (activeSoundClips)
+        {
+            for (Clip clip : activeSoundClips)
+            {
+                if (clip != null && clip.isOpen())
+                {
+                    clip.stop();
+                    clip.close();
+                }
+            }
+            activeSoundClips.clear();
+        }
+    }
+    
+    /**
+     * Pausa la música
+     */
+    public void pauseMusic()
+    {
+        if (musicClip != null && isPlaying)
+        {
+            musicClip.stop();
+        }
+    }
+    
+    /**
+     * Reanuda la música
+     */
+    public void resumeMusic()
+    {
+        if (musicClip != null && !isPlaying)
+        {
+            musicClip.start();
+            isPlaying = true;
+        }
+    }
+    
+    /**
+     * Ajusta el volumen (0.0 a 1.0)
+     */
+    public void setVolume(float volume)
+    {
+        if (musicClip != null)
+        {
+            FloatControl gainControl = (FloatControl) musicClip.getControl(FloatControl.Type.MASTER_GAIN);
+            float dB = (float) (Math.log(volume) / Math.log(10.0) * 20.0);
+            gainControl.setValue(dB);
+        }
+    }
+    
+    public boolean isPlaying()
+    {
+        return isPlaying;
+    }
+}

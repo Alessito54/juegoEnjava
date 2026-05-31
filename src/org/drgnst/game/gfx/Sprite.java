@@ -1,9 +1,7 @@
 package org.drgnst.game.gfx;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:31:57
+ * Sprite container
  */
 public class Sprite
 {

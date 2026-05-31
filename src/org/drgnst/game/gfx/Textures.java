@@ -6,9 +6,7 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:31:54
+ * Texture loader
  */
 public class Textures
 {

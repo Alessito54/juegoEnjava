@@ -1,13 +1,15 @@
 package org.drgnst.game.gfx;
 
+import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.util.Random;
+
+import javax.imageio.ImageIO;
 
 import org.drgnst.game.Game;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:32:00
+ * Screen and rendering utilities
  */
 public class Screen extends Bitmap
 {
@@ -15,6 +17,7 @@ public class Screen extends Bitmap
 
     public Bitmap test;
     public Bitmap3D perspectiveVision;
+    private Bitmap bulletIcon;
 
     public Screen(int width, int height)
     {
@@ -25,19 +28,490 @@ public class Screen extends Bitmap
             test.pixels[i] = r.nextInt();
 
         perspectiveVision = new Bitmap3D(width, height);
+        bulletIcon = loadBitmap("image/bala.png");
     }
 
     public void render(Game game)
     {
+        if (game == null)
+            return;
         clear();
         perspectiveVision.render(game);
         perspectiveVision.renderFog(3);
         render(perspectiveVision, 0, 0);
-//		render(test, (width - 50) / 2 + ox, (height - 50) / 2 + oy);
+        
+        // Renderizar el arma
+        game.weapon.render(this);
+
+        // Jumpscare a pantalla completa cuando muere
+        if (game.getJumpscareTimer() > 0 && game.getJumpscareImage() != null)
+        {
+            Bitmap jumpscare = game.getJumpscareImage();
+            // Escalar la imagen de jumpscare al tamaÃ±o de la pantalla
+            renderJumpscareFullScreen(jumpscare, width, height);
+        }
+
+        // Overlay cuando muere: borde rojo sutil que se desvanece
+        if (game.getDeathFlashTimer() > 0)
+        {
+            double t = game.getDeathFlashTimer() / 30.0; // 0..1
+            if (t > 1.0)
+                t = 1.0;
+            int alpha = (int) (t * 200); // menos intenso
+            int thickness = 3;
+
+            // top/bottom border
+            for (int y = 0; y < thickness; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    blendPixel(x, y, 0xff0000, alpha);
+                    blendPixel(x, height - 1 - y, 0xff0000, alpha);
+                }
+            }
+
+            // left/right border
+            for (int x = 0; x < thickness; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    blendPixel(x, y, 0xff0000, alpha);
+                    blendPixel(width - 1 - x, y, 0xff0000, alpha);
+                }
+            }
+        }
     }
 
     public void update()
     {
 
+    }
+
+    private static final int[][] DIGITS = new int[][] {
+        {0b111,0b101,0b101,0b101,0b111}, //0
+        {0b010,0b110,0b010,0b010,0b111}, //1
+        {0b111,0b001,0b111,0b100,0b111}, //2
+        {0b111,0b001,0b111,0b001,0b111}, //3
+        {0b101,0b101,0b111,0b001,0b001}, //4
+        {0b111,0b100,0b111,0b001,0b111}, //5
+        {0b111,0b100,0b111,0b101,0b111}, //6
+        {0b111,0b001,0b010,0b010,0b010}, //7
+        {0b111,0b101,0b111,0b101,0b111}, //8
+        {0b111,0b101,0b111,0b001,0b111}  //9
+    };
+
+    private void drawDigit(int ox, int oy, int d, int color, int scale)
+    {
+        if (d < 0 || d > 9)
+            return;
+        int[] pat = DIGITS[d];
+        for (int ry = 0; ry < 5; ry++)
+        {
+            int row = pat[ry];
+            for (int rx = 0; rx < 3; rx++)
+            {
+                boolean on = ((row >> (2 - rx)) & 1) == 1;
+                if (!on)
+                    continue;
+                for (int sy = 0; sy < scale; sy++)
+                {
+                    for (int sx = 0; sx < scale; sx++)
+                    {
+                        int px = ox + rx * scale + sx;
+                        int py = oy + ry * scale + sy;
+                        if (px < 0 || px >= width || py < 0 || py >= height)
+                            continue;
+                        pixels[px + py * width] = color & 0xffffff;
+                    }
+                }
+            }
+        }
+    }
+
+    private void drawNumber(int x, int y, int value, int color)
+    {
+        String s = Integer.toString(Math.max(0, value));
+        int scale = 2;
+        int spacing = 1;
+        int dx = 0;
+        for (int i = 0; i < s.length(); i++)
+        {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9')
+                continue;
+            int d = c - '0';
+            drawDigit(x + dx, y, d, color, scale);
+            dx += 3 * scale + spacing;
+        }
+    }
+
+    private void drawNumberRight(int rightX, int y, int value, int color, int scale)
+    {
+        String s = Integer.toString(Math.max(0, value));
+        int spacing = 1;
+        int w = s.length() * (3 * scale + spacing);
+        int x = rightX - w;
+        int dx = 0;
+        for (int i = 0; i < s.length(); i++)
+        {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9')
+                continue;
+            int d = c - '0';
+            drawDigit(x + dx, y, d, color, scale);
+            dx += 3 * scale + spacing;
+        }
+    }
+
+    private void drawLabelAndNumber(int x, int y, String label, int value, int color, int scale)
+    {
+        drawText(x, y, label, color, scale);
+        int labelWidth = label.length() * (3 * scale + 1);
+        drawNumber(x + labelWidth + 2, y, value, color, scale);
+    }
+
+    private void drawLabelAndText(int x, int y, String label, String value, int color, int scale)
+    {
+        drawText(x, y, label, color, scale);
+        int labelWidth = label.length() * (3 * scale + 1);
+        drawText(x + labelWidth + 2, y, value == null ? "" : value, color, scale);
+    }
+
+    private String clipText(String value, int maxChars)
+    {
+        if (value == null)
+            return "";
+        if (maxChars <= 0 || value.length() <= maxChars)
+            return value;
+        return value.substring(0, maxChars);
+    }
+
+    private void drawSidePanelLeft(Game game)
+    {
+        int panelW = 36;
+        fillRect(0, 0, panelW, height, 0x0f0f13);
+
+        int y = 4;
+        drawText(3, y, "SC", 0xffd24d, 1);
+        y += 10;
+        drawNumberRight(panelW - 3, y, game.getScore(), 0xffd24d, 1);
+        y += 12;
+
+        drawText(3, y, "MX", 0x7de3ff, 1);
+        y += 10;
+        drawNumberRight(panelW - 3, y, game.getMaxScore(), 0x7de3ff, 1);
+        y += 12;
+
+        drawText(3, y, "PL", 0xffffff, 1);
+        y += 10;
+        drawText(3, y, clipText(game.getCurrentPlayerName(), 4), 0xffffff, 1);
+        y += 14;
+
+        drawText(3, y, "TP", 0x7de3ff, 1);
+        y += 10;
+        drawText(3, y, clipText(game.getTopPlayerName(), 4), 0x7de3ff, 1);
+    }
+
+    private void drawSidePanelRight(Game game)
+    {
+        int panelW = 36;
+        int startX = width - panelW;
+        fillRect(startX, 0, panelW, height, 0x0f0f13);
+
+        int y = 4;
+        drawText(startX + 3, y, "K", 0xffffff, 1);
+        y += 10;
+        drawNumberRight(width - 3, y, game.getKills(), 0xffffff, 1);
+        y += 12;
+
+        drawText(startX + 3, y, "D", 0xff8888, 1);
+        y += 10;
+        drawNumberRight(width - 3, y, game.getDeaths(), 0xff8888, 1);
+        y += 12;
+
+        drawText(startX + 3, y, "HP", 0x6de36d, 1);
+        y += 10;
+        drawHealthMini(game.getPlayerHealthPercent(), startX + 3, y, panelW - 6, 4);
+        y += 10;
+
+        drawText(startX + 3, y, "AM", 0xf5b428, 1);
+        y += 10;
+        drawAmmoMini(game.getAmmo(), game.getMaxAmmo(), startX + 3, y, panelW - 6);
+
+        if (game.getBoss() != null && !game.getBoss().isExpired())
+        {
+            y += 20;
+            drawText(startX + 3, y, "BS", 0xd97cff, 1);
+            y += 10;
+            drawNumberRight(width - 3, y, game.getBoss().getHealthPercent(), 0xd97cff, 1);
+        }
+    }
+
+    private void drawHealthMini(int percent, int x, int y, int w, int h)
+    {
+        fillRect(x, y, w, h, 0x2a2a2a);
+        int fill = (int) (w * (Math.max(0, Math.min(100, percent)) / 100.0));
+        int color = percent > 60 ? 0x28be46 : (percent > 30 ? 0xf5b428 : 0xdc3c3c);
+        fillRect(x, y, fill, h, color);
+    }
+
+    private void drawAmmoMini(int ammo, int maxAmmo, int x, int y, int w)
+    {
+        if (maxAmmo <= 0)
+            return;
+
+        int filled = (int) (w * (Math.max(0, Math.min(maxAmmo, ammo)) / (double) maxAmmo));
+        fillRect(x, y, w, 4, 0x2a2a2a);
+        fillRect(x, y, filled, 4, 0xf5b428);
+    }
+
+    private void drawNumber(int x, int y, int value, int color, int scale)
+    {
+        String s = Integer.toString(Math.max(0, value));
+        int spacing = 1;
+        int dx = 0;
+        for (int i = 0; i < s.length(); i++)
+        {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9')
+                continue;
+            int d = c - '0';
+            drawDigit(x + dx, y, d, color, scale);
+            dx += 3 * scale + spacing;
+        }
+    }
+
+    private void drawText(int x, int y, String text, int color, int scale)
+    {
+        int dx = 0;
+        for (int i = 0; i < text.length(); i++)
+        {
+            char c = Character.toUpperCase(text.charAt(i));
+            if (c == ' ')
+            {
+                dx += 2 * scale;
+                continue;
+            }
+
+            int[] pat = getLetterPattern(c);
+            if (pat == null)
+            {
+                dx += 4 * scale;
+                continue;
+            }
+
+            for (int ry = 0; ry < 5; ry++)
+            {
+                int row = pat[ry];
+                for (int rx = 0; rx < 3; rx++)
+                {
+                    boolean on = ((row >> (2 - rx)) & 1) == 1;
+                    if (!on)
+                        continue;
+                    for (int sy = 0; sy < scale; sy++)
+                    {
+                        for (int sx = 0; sx < scale; sx++)
+                        {
+                            int px = x + dx + rx * scale + sx;
+                            int py = y + ry * scale + sy;
+                            if (px < 0 || px >= width || py < 0 || py >= height)
+                                continue;
+                            pixels[px + py * width] = color & 0xffffff;
+                        }
+                    }
+                }
+            }
+
+            dx += 4 * scale;
+        }
+    }
+
+    private int[] getLetterPattern(char c)
+    {
+        switch (c)
+        {
+            case 'S': return new int[] {0b111,0b100,0b111,0b001,0b111};
+            case 'C': return new int[] {0b111,0b100,0b100,0b100,0b111};
+            case 'O': return new int[] {0b111,0b101,0b101,0b101,0b111};
+            case 'R': return new int[] {0b110,0b101,0b110,0b101,0b101};
+            case 'E': return new int[] {0b111,0b100,0b111,0b100,0b111};
+            case 'M': return new int[] {0b101,0b111,0b111,0b101,0b101};
+            case 'A': return new int[] {0b111,0b101,0b111,0b101,0b101};
+            case 'X': return new int[] {0b101,0b101,0b010,0b101,0b101};
+            default: return null;
+        }
+    }
+
+    private void drawHealthBar(int x, int y, int w, int h, int percent)
+    {
+        // Fondo
+        fillRect(x - 1, y - 1, w + 2, h + 2, 0x222222);
+        fillRect(x, y, w, h, 0x444444);
+
+        int fill = (int) (w * (Math.max(0, Math.min(100, percent)) / 100.0));
+        int color;
+        if (percent > 60)
+            color = 0x28be46; // verde
+        else if (percent > 30)
+            color = 0xf5b428; // amarillo
+        else
+            color = 0xdc3c3c; // rojo
+
+        fillRect(x, y, fill, h, color);
+    }
+
+    private void blendPixel(int px, int py, int color, int alpha)
+    {
+        if (px < 0 || px >= width || py < 0 || py >= height)
+            return;
+        int idx = px + py * width;
+        int dst = pixels[idx];
+        int dr = (dst >> 16) & 0xff;
+        int dg = (dst >> 8) & 0xff;
+        int db = dst & 0xff;
+
+        int sr = (color >> 16) & 0xff;
+        int sg = (color >> 8) & 0xff;
+        int sb = color & 0xff;
+
+        int nr = (dr * (255 - alpha) + sr * alpha) / 255;
+        int ng = (dg * (255 - alpha) + sg * alpha) / 255;
+        int nb = (db * (255 - alpha) + sb * alpha) / 255;
+
+        pixels[idx] = (nr << 16) | (ng << 8) | nb;
+    }
+
+    private void fillRect(int x, int y, int w, int h, int color)
+    {
+        for (int yy = y; yy < y + h; yy++)
+        {
+            if (yy < 0 || yy >= height)
+                continue;
+            for (int xx = x; xx < x + w; xx++)
+            {
+                if (xx < 0 || xx >= width)
+                    continue;
+                pixels[xx + yy * width] = color & 0xffffff;
+            }
+        }
+    }
+
+    private Bitmap loadBitmap(String path)
+    {
+        try
+        {
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage(path);
+            if (image == null)
+                return null;
+
+            Bitmap res = new Bitmap(image.getWidth(), image.getHeight());
+            image.getRGB(0, 0, res.width, res.height, res.pixels, 0, res.width);
+            return res;
+        }
+        catch (IOException e)
+        {
+            return null;
+        }
+    }
+
+    private void drawAmmoHud(int ammo, int maxAmmo)
+    {
+        if (bulletIcon == null || maxAmmo <= 0)
+            return;
+
+        int iconW = 10;
+        int iconH = 15;
+        int spacing = 2;
+        int totalW = maxAmmo * iconW + (maxAmmo - 1) * spacing;
+        int startX = 6;
+        int y = height - iconH - 6;
+
+        for (int i = 0; i < maxAmmo; i++)
+        {
+            float opacity = i < ammo ? 1.0f : 0.25f;
+            drawBitmapScaled(bulletIcon, startX + i * (iconW + spacing), y, iconW, iconH, opacity);
+        }
+    }
+
+    private void drawBitmapScaled(Bitmap src, int ox, int oy, int targetW, int targetH, float opacity)
+    {
+        if (src == null || targetW <= 0 || targetH <= 0)
+            return;
+
+        for (int y = 0; y < targetH; y++)
+        {
+            int sy = (int) ((y / (float) targetH) * src.height);
+            if (sy < 0)
+                sy = 0;
+            if (sy >= src.height)
+                sy = src.height - 1;
+
+            for (int x = 0; x < targetW; x++)
+            {
+                int sx = (int) ((x / (float) targetW) * src.width);
+                if (sx < 0)
+                    sx = 0;
+                if (sx >= src.width)
+                    sx = src.width - 1;
+
+                int argb = src.pixels[sx + sy * src.width];
+                int alpha = (argb >>> 24) & 0xff;
+                if (alpha == 0)
+                    continue;
+
+                alpha = (int) (alpha * opacity);
+                if (alpha <= 0)
+                    continue;
+
+                int px = ox + x;
+                int py = oy + y;
+                if (px < 0 || px >= width || py < 0 || py >= height)
+                    continue;
+
+                int idx = px + py * width;
+                int dst = pixels[idx];
+
+                int dr = (dst >> 16) & 0xff;
+                int dg = (dst >> 8) & 0xff;
+                int db = dst & 0xff;
+
+                int sr = (argb >> 16) & 0xff;
+                int sg = (argb >> 8) & 0xff;
+                int sb = argb & 0xff;
+
+                int nr = (dr * (255 - alpha) + sr * alpha) / 255;
+                int ng = (dg * (255 - alpha) + sg * alpha) / 255;
+                int nb = (db * (255 - alpha) + sb * alpha) / 255;
+
+                pixels[idx] = (nr << 16) | (ng << 8) | nb;
+            }
+        }
+    }
+
+    private void renderJumpscareFullScreen(Bitmap jumpscare, int screenWidth, int screenHeight)
+    {
+        // Escalar la imagen de jumpscare al tamaÃ±o completo de la pantalla
+        double scaleX = (double) screenWidth / jumpscare.width;
+        double scaleY = (double) screenHeight / jumpscare.height;
+
+        for (int y = 0; y < screenHeight; y++)
+        {
+            for (int x = 0; x < screenWidth; x++)
+            {
+                int srcX = (int) (x / scaleX);
+                int srcY = (int) (y / scaleY);
+                
+                // Clamp to bounds
+                if (srcX < 0) srcX = 0;
+                if (srcX >= jumpscare.width) srcX = jumpscare.width - 1;
+                if (srcY < 0) srcY = 0;
+                if (srcY >= jumpscare.height) srcY = jumpscare.height - 1;
+
+                if (x < 0 || x >= screenWidth || y < 0 || y >= screenHeight)
+                    continue;
+
+                pixels[x + y * screenWidth] = jumpscare.pixels[srcX + srcY * jumpscare.width];
+            }
+        }
     }
 }
