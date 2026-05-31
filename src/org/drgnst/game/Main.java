@@ -17,7 +17,7 @@ import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 
 import org.drgnst.game.gfx.Screen;
-
+import org.drgnst.game.network.*;
 
 public class Main extends Canvas implements Runnable
 {
@@ -46,6 +46,9 @@ public class Main extends Canvas implements Runnable
         MENU,
         CREATE_PLAYER,
         SELECT_PLAYER,
+        MULTIPLAYER_MENU,
+        NETWORK_SERVER,
+        NETWORK_CLIENT,
         PLAYING,
         PAUSED
     }
@@ -79,6 +82,15 @@ public class Main extends Canvas implements Runnable
     private String pendingPlayerName;
     private List<String> playerList;
     private int selectedPlayerIndex;
+    
+    // Networking
+    private GameNetworkServer networkServer;
+    private GameNetworkClient networkClient;
+    private List<NetworkDiscovery.ServerInfo> discoveredServers;
+    private int selectedServerIndex;
+    private String[] lobbyPlayerNames;
+    private String[] lobbyClientIds;
+    private boolean isServerReady;
 
     public Main()
     {
@@ -99,6 +111,13 @@ public class Main extends Canvas implements Runnable
         pendingPlayerName = "";
         playerList = new ArrayList<String>();
         selectedPlayerIndex = 0;
+        
+        // Networking initialization
+        discoveredServers = new ArrayList<>();
+        selectedServerIndex = 0;
+        lobbyPlayerNames = new String[0];
+        lobbyClientIds = new String[0];
+        isServerReady = false;
 
         addKeyListener(inputHandler);
         addMouseListener(inputHandler);
@@ -216,17 +235,26 @@ public class Main extends Canvas implements Runnable
 
         Graphics g = bs.getDrawGraphics();
 
-        if (state == GameState.MENU || state == GameState.CREATE_PLAYER || state == GameState.SELECT_PLAYER || state == GameState.PAUSED)
+        if (state == GameState.MENU || state == GameState.CREATE_PLAYER || state == GameState.SELECT_PLAYER || 
+            state == GameState.MULTIPLAYER_MENU || state == GameState.NETWORK_SERVER || state == GameState.NETWORK_CLIENT || 
+            state == GameState.PAUSED)
         {
-            if (state == GameState.MENU || state == GameState.CREATE_PLAYER || state == GameState.SELECT_PLAYER)
+            if (state == GameState.MENU || state == GameState.CREATE_PLAYER || state == GameState.SELECT_PLAYER ||
+                state == GameState.MULTIPLAYER_MENU || state == GameState.NETWORK_SERVER || state == GameState.NETWORK_CLIENT)
             {
                 menu.renderToGraphics(g, WINDOW_WIDTH, WINDOW_HEIGHT);
                 if (state == GameState.MENU)
                     renderMainMenuOverlay(g);
                 else if (state == GameState.CREATE_PLAYER)
                     renderCreatePlayerOverlay(g);
-                else
+                else if (state == GameState.SELECT_PLAYER)
                     renderSelectPlayerOverlay(g);
+                else if (state == GameState.MULTIPLAYER_MENU)
+                    renderMultiplayerMenuOverlay(g);
+                else if (state == GameState.NETWORK_SERVER)
+                    renderServerOverlay(g);
+                else if (state == GameState.NETWORK_CLIENT)
+                    renderClientOverlay(g);
             }
             else
             {
@@ -310,6 +338,10 @@ public class Main extends Canvas implements Runnable
                 {
                     openPlayerSelector();
                 }
+                else if (clicked == Menu.BUTTON_START + 3)
+                {
+                    state = GameState.MULTIPLAYER_MENU;
+                }
             }
 
             screenMenu.update();
@@ -321,6 +353,18 @@ public class Main extends Canvas implements Runnable
         else if (state == GameState.SELECT_PLAYER)
         {
             handleSelectPlayerInput();
+        }
+        else if (state == GameState.MULTIPLAYER_MENU)
+        {
+            handleMultiplayerMenuInput();
+        }
+        else if (state == GameState.NETWORK_SERVER)
+        {
+            handleServerInput();
+        }
+        else if (state == GameState.NETWORK_CLIENT)
+        {
+            handleClientInput();
         }
         else if (state == GameState.PAUSED)
         {
@@ -637,7 +681,7 @@ public class Main extends Canvas implements Runnable
     private void renderCenteredMenuCard(Graphics g)
     {
         int w = 820;
-        int h = 420;
+        int h = 480;
         int x = (WINDOW_WIDTH - w) / 2;
         int y = (WINDOW_HEIGHT - h) / 2;
 
@@ -657,6 +701,7 @@ public class Main extends Canvas implements Runnable
         drawMenuButton(g, x + 24, y + 210, BUTTON_WIDTH, BUTTON_HEIGHT, "JUGAR", true);
         drawMenuButton(g, x + 24, y + 210 + BUTTON_HEIGHT + BUTTON_GAP, BUTTON_WIDTH, BUTTON_HEIGHT, "CREAR JUGADOR", false);
         drawMenuButton(g, x + 24, y + 210 + (BUTTON_HEIGHT + BUTTON_GAP) * 2, BUTTON_WIDTH, BUTTON_HEIGHT, "ELEGIR JUGADOR", false);
+        drawMenuButton(g, x + 24, y + 210 + (BUTTON_HEIGHT + BUTTON_GAP) * 3, BUTTON_WIDTH, BUTTON_HEIGHT, "MULTIJUGADOR", false);
     }
 
     private void drawMenuButton(Graphics g, int x, int y, int w, int h, String text, boolean primary)
@@ -677,7 +722,7 @@ public class Main extends Canvas implements Runnable
     private int checkMainMenuClick(int mouseX, int mouseY)
     {
         int w = 820;
-        int h = 420;
+        int h = 480;
         int x = (WINDOW_WIDTH - w) / 2;
         int y = (WINDOW_HEIGHT - h) / 2;
 
@@ -690,6 +735,8 @@ public class Main extends Canvas implements Runnable
             return Menu.BUTTON_START + 1;
         if (isInside(mouseX, mouseY, bx, by + (BUTTON_HEIGHT + BUTTON_GAP) * 2, BUTTON_WIDTH, BUTTON_HEIGHT))
             return Menu.BUTTON_START + 2;
+        if (isInside(mouseX, mouseY, bx, by + (BUTTON_HEIGHT + BUTTON_GAP) * 3, BUTTON_WIDTH, BUTTON_HEIGHT))
+            return Menu.BUTTON_START + 3;
 
         return Menu.BUTTON_NONE;
     }
@@ -724,6 +771,334 @@ public class Main extends Canvas implements Runnable
         game.attachHostFrame(frame);
 
         game.start();
+    }
+
+    private void renderMultiplayerMenuOverlay(Graphics g)
+    {
+        int w = 680;
+        int h = 320;
+        int x = (WINDOW_WIDTH - w) / 2;
+        int y = (WINDOW_HEIGHT - h) / 2;
+
+        g.setColor(new java.awt.Color(10, 10, 14, 230));
+        g.fillRoundRect(x, y, w, h, 20, 20);
+        g.setColor(java.awt.Color.WHITE);
+        g.drawRoundRect(x, y, w, h, 20, 20);
+
+        g.setFont(g.getFont().deriveFont(30f));
+        g.drawString("MULTIJUGADOR", x + 20, y + 42);
+
+        drawMenuButton(g, x + 20, y + 90, BUTTON_WIDTH, BUTTON_HEIGHT, "SERVIDOR", true);
+        drawMenuButton(g, x + 20, y + 90 + BUTTON_HEIGHT + BUTTON_GAP, BUTTON_WIDTH, BUTTON_HEIGHT, "CLIENTE", false);
+
+        g.setFont(g.getFont().deriveFont(18f));
+        g.drawString("ESC: volver al menu", x + 20, y + 290);
+    }
+
+    private void renderServerOverlay(Graphics g)
+    {
+        int w = 700;
+        int h = 400;
+        int x = (WINDOW_WIDTH - w) / 2;
+        int y = (WINDOW_HEIGHT - h) / 2;
+
+        g.setColor(new java.awt.Color(10, 10, 14, 230));
+        g.fillRoundRect(x, y, w, h, 20, 20);
+        g.setColor(java.awt.Color.WHITE);
+        g.drawRoundRect(x, y, w, h, 20, 20);
+
+        g.setFont(g.getFont().deriveFont(28f));
+        g.drawString("SERVIDOR DE JUEGO", x + 20, y + 42);
+
+        g.setFont(g.getFont().deriveFont(20f));
+        g.drawString("Estado: " + (networkServer != null && networkServer.getConnectedClients().size() > 0 ? "ESPERANDO" : "INICIALIZANDO..."), x + 20, y + 90);
+
+        List<GameNetworkServer.ClientHandler> clients = networkServer != null ? networkServer.getConnectedClients() : new ArrayList<>();
+        g.drawString("Jugadores conectados: " + clients.size() + "/2", x + 20, y + 130);
+
+        int clientY = y + 170;
+        for (int i = 0; i < clients.size(); i++)
+        {
+            GameNetworkServer.ClientHandler client = clients.get(i);
+            String name = client.playerName != null ? client.playerName : "Conectando...";
+            g.drawString((i + 1) + ". " + name, x + 40, clientY);
+            clientY += 30;
+        }
+
+        if (clients.size() == 2 && isServerReady)
+        {
+            drawMenuButton(g, x + 20, y + 330, BUTTON_WIDTH, BUTTON_HEIGHT, "INICIAR JUEGO", true);
+        }
+
+        g.setFont(g.getFont().deriveFont(16f));
+        g.drawString("ESC: volver", x + 20, y + 370);
+    }
+
+    private void renderClientOverlay(Graphics g)
+    {
+        int w = 700;
+        int h = 400;
+        int x = (WINDOW_WIDTH - w) / 2;
+        int y = (WINDOW_HEIGHT - h) / 2;
+
+        g.setColor(new java.awt.Color(10, 10, 14, 230));
+        g.fillRoundRect(x, y, w, h, 20, 20);
+        g.setColor(java.awt.Color.WHITE);
+        g.drawRoundRect(x, y, w, h, 20, 20);
+
+        g.setFont(g.getFont().deriveFont(28f));
+        g.drawString("CLIENTE", x + 20, y + 42);
+
+        g.setFont(g.getFont().deriveFont(20f));
+        
+        if (discoveredServers.isEmpty())
+        {
+            g.drawString("Escaneando red LAN...", x + 20, y + 100);
+        }
+        else
+        {
+            g.drawString("Servidores disponibles:", x + 20, y + 100);
+
+            int serverY = y + 140;
+            for (int i = 0; i < discoveredServers.size(); i++)
+            {
+                NetworkDiscovery.ServerInfo info = discoveredServers.get(i);
+                String selected = i == selectedServerIndex ? ">>> " : "    ";
+                String text = selected + info.serverIp + ":" + info.port + " (" + info.connectedPlayers + "/2)";
+                g.drawString(text, x + 20, serverY);
+                serverY += 35;
+            }
+
+            if (!discoveredServers.isEmpty())
+            {
+                g.setFont(g.getFont().deriveFont(18f));
+                g.drawString("Arriba/Abajo: navegar   Enter: conectar   ESC: volver", x + 20, y + 360);
+            }
+        }
+    }
+
+    private void handleMultiplayerMenuInput()
+    {
+        boolean spaceDown = inputHandler.keys[KeyEvent.VK_SPACE];
+        boolean sDown = inputHandler.keys[KeyEvent.VK_S];
+        boolean cDown = inputHandler.keys[KeyEvent.VK_C];
+        boolean escapeDown = inputHandler.keys[KeyEvent.VK_ESCAPE];
+
+        if (spaceDown && !spaceWasDown)
+        {
+            startServer();
+        }
+
+        if (sDown && !selectWasDown)
+        {
+            startServer();
+        }
+
+        if (cDown && !cWasDown)
+        {
+            startClient();
+        }
+
+        if (escapeDown && !escapeWasDown)
+        {
+            state = GameState.MENU;
+            if (networkServer != null)
+                networkServer.stop();
+        }
+
+        if (inputHandler.consumeMouseClick())
+        {
+            int w = 680;
+            int h = 320;
+            int x = (WINDOW_WIDTH - w) / 2;
+            int y = (WINDOW_HEIGHT - h) / 2;
+            int bx = x + 20;
+            int by = y + 90;
+
+            if (isInside(inputHandler.mouseX, inputHandler.mouseY, bx, by, BUTTON_WIDTH, BUTTON_HEIGHT))
+            {
+                startServer();
+            }
+            else if (isInside(inputHandler.mouseX, inputHandler.mouseY, bx, by + BUTTON_HEIGHT + BUTTON_GAP, BUTTON_WIDTH, BUTTON_HEIGHT))
+            {
+                startClient();
+            }
+        }
+
+        spaceWasDown = spaceDown;
+        selectWasDown = sDown;
+        cWasDown = cDown;
+        escapeWasDown = escapeDown;
+        screenMenu.update();
+    }
+
+    private void handleServerInput()
+    {
+        boolean escapeDown = inputHandler.keys[KeyEvent.VK_ESCAPE];
+        boolean enterDown = inputHandler.keys[KeyEvent.VK_ENTER];
+
+        if (escapeDown && !escapeWasDown)
+        {
+            state = GameState.MULTIPLAYER_MENU;
+            if (networkServer != null)
+                networkServer.stop();
+            networkServer = null;
+        }
+
+        if (enterDown && !enterWasDown && networkServer != null && networkServer.getConnectedClients().size() == 2 && isServerReady)
+        {
+            networkServer.startGame();
+            state = GameState.PLAYING;
+            game.resetRun();
+        }
+
+        if (inputHandler.consumeMouseClick())
+        {
+            int w = 700;
+            int h = 400;
+            int x = (WINDOW_WIDTH - w) / 2;
+            int y = (WINDOW_HEIGHT - h) / 2;
+            int bx = x + 20;
+            int by = y + 330;
+
+            if (networkServer != null && networkServer.getConnectedClients().size() == 2 && isServerReady)
+            {
+                if (isInside(inputHandler.mouseX, inputHandler.mouseY, bx, by, BUTTON_WIDTH, BUTTON_HEIGHT))
+                {
+                    networkServer.startGame();
+                    state = GameState.PLAYING;
+                    game.resetRun();
+                }
+            }
+        }
+
+        escapeWasDown = escapeDown;
+        enterWasDown = enterDown;
+        screenMenu.update();
+    }
+
+    private void handleClientInput()
+    {
+        boolean escapeDown = inputHandler.keys[KeyEvent.VK_ESCAPE];
+        boolean upDown = inputHandler.keys[KeyEvent.VK_UP] || inputHandler.keys[KeyEvent.VK_W];
+        boolean downDown = inputHandler.keys[KeyEvent.VK_DOWN] || inputHandler.keys[KeyEvent.VK_S];
+        boolean enterDown = inputHandler.keys[KeyEvent.VK_ENTER];
+
+        if (upDown && !leftSelectWasDown && !discoveredServers.isEmpty())
+        {
+            selectedServerIndex = (selectedServerIndex - 1 + discoveredServers.size()) % discoveredServers.size();
+        }
+        else if (downDown && !rightSelectWasDown && !discoveredServers.isEmpty())
+        {
+            selectedServerIndex = (selectedServerIndex + 1) % discoveredServers.size();
+        }
+
+        if (enterDown && !enterWasDown && !discoveredServers.isEmpty())
+        {
+            NetworkDiscovery.ServerInfo server = discoveredServers.get(selectedServerIndex);
+            connectToServer(server.serverIp, server.port);
+        }
+
+        if (escapeDown && !escapeWasDown)
+        {
+            state = GameState.MULTIPLAYER_MENU;
+            if (networkClient != null)
+                networkClient.disconnect();
+            networkClient = null;
+        }
+
+        leftSelectWasDown = upDown;
+        rightSelectWasDown = downDown;
+        enterWasDown = enterDown;
+        escapeWasDown = escapeDown;
+        screenMenu.update();
+    }
+
+    private void startServer()
+    {
+        try
+        {
+            networkServer = new GameNetworkServer((clientId, playerName) ->
+            {
+                System.out.println("Client connected: " + playerName);
+                if (networkServer.getConnectedClients().size() == 2)
+                {
+                    isServerReady = true;
+                }
+            }, (clientId) ->
+            {
+                System.out.println("Client disconnected: " + clientId);
+                isServerReady = false;
+            });
+            networkServer.start();
+            state = GameState.NETWORK_SERVER;
+            System.out.println("Server started");
+        }
+        catch (Exception e)
+        {
+            System.err.println("Failed to start server: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void startClient()
+    {
+        try
+        {
+            System.out.println("Scanning for servers on LAN...");
+            new Thread(() ->
+            {
+                discoveredServers = new ArrayList<>(NetworkDiscovery.discoverServers());
+                selectedServerIndex = 0;
+                System.out.println("Found " + discoveredServers.size() + " servers");
+            }).start();
+            
+            state = GameState.NETWORK_CLIENT;
+        }
+        catch (Exception e)
+        {
+            System.err.println("Error in startClient: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void connectToServer(String serverIp, int port)
+    {
+        try
+        {
+            networkClient = new GameNetworkClient((clientId) ->
+            {
+                System.out.println("Connected to server with ID: " + clientId);
+            }, (playerNames, clientIds) ->
+            {
+                lobbyPlayerNames = playerNames;
+                lobbyClientIds = clientIds;
+                System.out.println("Player list updated: " + java.util.Arrays.toString(playerNames));
+            }, () ->
+            {
+                System.out.println("Game is starting!");
+                state = GameState.PLAYING;
+                game.resetRun();
+            }, (gameState) ->
+            {
+                // Update game state from server
+            }, (error) ->
+            {
+                System.err.println("Server error: " + error);
+            }, () ->
+            {
+                System.out.println("Disconnected from server");
+                state = GameState.NETWORK_CLIENT;
+            });
+
+            networkClient.connect(serverIp, port, game.getCurrentPlayerName());
+            System.out.println("Connected to server at " + serverIp + ":" + port);
+        }
+        catch (Exception e)
+        {
+            System.err.println("Failed to connect to server: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private BufferedImage loadBackgroundImage()
