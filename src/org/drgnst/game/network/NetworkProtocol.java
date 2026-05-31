@@ -96,11 +96,15 @@ public class NetworkProtocol
         public double p1X, p1Y, p1Angle;
         public int p1Health, p1Ammo, p1Score, p1Kills;
         public boolean p1Firing;
+        public boolean p1Moving;
+        public boolean p1Reloading;
         
         // Player 2 state
         public double p2X, p2Y, p2Angle;
         public int p2Health, p2Ammo, p2Score, p2Kills;
         public boolean p2Firing;
+        public boolean p2Moving;
+        public boolean p2Reloading;
 
         public ArrayList<EnemyState> enemyStates = new ArrayList<>();
         public BossState bossState;

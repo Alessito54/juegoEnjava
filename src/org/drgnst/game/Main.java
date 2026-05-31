@@ -1216,6 +1216,8 @@ public class Main extends Canvas implements Runnable
         stateMessage.p1Score = game.getScore();
         stateMessage.p1Kills = game.getKills();
         stateMessage.p1Firing = game.isLocalFiring();
+        stateMessage.p1Moving = game.player != null && (game.player.xa != 0 || game.player.ya != 0);
+        stateMessage.p1Reloading = game.isLocalReloading();
 
         if (game.getRemotePlayer() != null)
         {
@@ -1234,6 +1236,8 @@ public class Main extends Canvas implements Runnable
         stateMessage.p2Score = game.getScore();
         stateMessage.p2Kills = game.getKills();
         stateMessage.p2Firing = game.isRemoteFiring();
+        stateMessage.p2Moving = game.isRemoteMoving();
+        stateMessage.p2Reloading = game.isRemoteReloading();
 
         if (game.getRemotePlayer() != null)
         {

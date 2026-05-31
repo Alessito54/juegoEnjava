@@ -105,7 +105,11 @@ public class Bitmap3D extends Bitmap
 
         if (game.isMultiplayerEnabled() && game.getRemotePlayer() != null && remotePlayerSprite != null)
         {
-            Bitmap remoteSprite = game.isRemoteFiring() && remotePlayerFireSprite != null ? remotePlayerFireSprite : remotePlayerSprite;
+            Bitmap remoteSprite = remotePlayerSprite;
+            if (game.isRemoteReloading() && remotePlayerFireSprite != null)
+                remoteSprite = remotePlayerFireSprite;
+            else if (game.isRemoteFiring() && remotePlayerFireSprite != null)
+                remoteSprite = remotePlayerFireSprite;
             renderEnemySprite(game.getRemotePlayer().x, game.getRemotePlayer().y, remoteSprite, 0.56, 0.86);
         }
 

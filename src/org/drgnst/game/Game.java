@@ -66,6 +66,7 @@ public class Game
     private int firingCooldown; // Cooldown entre disparos
     private int ammo;
     private int reloadTimer;
+    private int remoteReloadTimer;
     private int score;
     private int maxScore;
     private String currentPlayerName;
@@ -81,7 +82,10 @@ public class Game
     private volatile String localRoleLabel = "JUGADOR 1 (SERVIDOR)";
     private volatile String remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
     private volatile boolean remoteFiring = false;
+    private volatile boolean remoteReloading = false;
+    private volatile boolean remoteMoving = false;
     private volatile boolean networkStateApplied = false;
+    private boolean remoteSpaceWasDown = false;
 
     public Game()
     {
@@ -98,6 +102,7 @@ public class Game
         firingCooldown = 0;
         ammo = MAX_AMMO;
         reloadTimer = 0;
+        remoteReloadTimer = 0;
         weapon.setReloading(false);
         score = 0;
         loadJumpscareImage();
@@ -133,7 +138,29 @@ public class Game
                 boolean rturnLeft = rk[VK_Q];
                 boolean rturnRight = rk[VK_E];
                 boolean rspace = rk[VK_SPACE];
+                boolean rmoving = rup || rdown || rleft || rright;
                 player2.update(rup, rdown, rleft, rright, rturnLeft, rturnRight, rspace);
+                remoteMoving = rmoving;
+
+                if (remoteReloadTimer > 0)
+                {
+                    remoteReloadTimer--;
+                    if (remoteReloadTimer <= 0)
+                    {
+                        remoteReloading = false;
+                    }
+                }
+
+                if (rspace && !remoteSpaceWasDown && remoteReloadTimer <= 0)
+                {
+                    remoteFiring = true;
+                }
+                else if (!rspace)
+                {
+                    remoteFiring = false;
+                }
+
+                remoteSpaceWasDown = rspace;
             }
         }
 
@@ -675,6 +702,9 @@ public class Game
         player2 = null;
         remoteKeys = new boolean[65535];
         remoteFiring = false;
+        remoteReloading = false;
+        remoteMoving = false;
+        remoteSpaceWasDown = false;
         networkStateApplied = false;
         localRoleLabel = "JUGADOR 1 (SERVIDOR)";
         remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
@@ -707,6 +737,9 @@ public class Game
             player2.y = state.p1Y;
             player2.rot = state.p1Angle;
             remoteFiring = state.p1Firing;
+            remoteMoving = state.p1Moving;
+            remoteReloading = state.p1Reloading;
+            remoteReloadTimer = state.p1Reloading ? RELOAD_DURATION_FRAMES : 0;
 
             if (state.enemyStates != null)
             {
@@ -743,6 +776,9 @@ public class Game
             player2.y = state.p2Y;
             player2.rot = state.p2Angle;
             remoteFiring = state.p2Firing;
+            remoteMoving = state.p2Moving;
+            remoteReloading = state.p2Reloading;
+            remoteReloadTimer = state.p2Reloading ? RELOAD_DURATION_FRAMES : 0;
         }
     }
 
@@ -754,6 +790,21 @@ public class Game
     public boolean isRemoteFiring()
     {
         return remoteFiring;
+    }
+
+    public boolean isRemoteReloading()
+    {
+        return remoteReloading;
+    }
+
+    public boolean isRemoteMoving()
+    {
+        return remoteMoving;
+    }
+
+    public boolean isLocalReloading()
+    {
+        return reloadTimer > 0;
     }
 
     public boolean isMultiplayerEnabled()
