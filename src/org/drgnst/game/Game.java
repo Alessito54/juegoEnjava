@@ -80,6 +80,7 @@ public class Game
     private volatile boolean localIsServer = true;
     private volatile String localRoleLabel = "JUGADOR 1 (SERVIDOR)";
     private volatile String remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
+    private volatile boolean remoteFiring = false;
 
     public Game()
     {
@@ -694,24 +695,32 @@ public class Game
         if (player2 == null)
             player2 = new Player(this);
 
-        if (localIsServer)
+        if (!localIsServer)
         {
-            player.x = state.p1X;
-            player.y = state.p1Y;
-            player.rot = state.p1Angle;
-            player2.x = state.p2X;
-            player2.y = state.p2Y;
-            player2.rot = state.p2Angle;
-        }
-        else
-        {
-            player.x = state.p2X;
-            player.y = state.p2Y;
-            player.rot = state.p2Angle;
+            // Cliente: mantener control local de su propia cámara/jugador para evitar snap-back
             player2.x = state.p1X;
             player2.y = state.p1Y;
             player2.rot = state.p1Angle;
+            remoteFiring = state.p1Firing;
         }
+        else
+        {
+            // Servidor: solo sincronizar el jugador remoto
+            player2.x = state.p2X;
+            player2.y = state.p2Y;
+            player2.rot = state.p2Angle;
+            remoteFiring = state.p2Firing;
+        }
+    }
+
+    public boolean isLocalFiring()
+    {
+        return weapon != null && weapon.isFiring();
+    }
+
+    public boolean isRemoteFiring()
+    {
+        return remoteFiring;
     }
 
     public boolean isMultiplayerEnabled()

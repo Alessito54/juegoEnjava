@@ -387,6 +387,7 @@ public class Main extends Canvas implements Runnable
             }
             else if (networkClient != null && networkClient.isConnected())
             {
+                game.update(inputHandler.keys);
                 networkClient.sendInput(inputHandler.keys);
             }
             else
@@ -1214,6 +1215,7 @@ public class Main extends Canvas implements Runnable
         stateMessage.p1Ammo = game.getAmmo();
         stateMessage.p1Score = game.getScore();
         stateMessage.p1Kills = game.getKills();
+        stateMessage.p1Firing = game.isLocalFiring();
 
         if (game.getRemotePlayer() != null)
         {
@@ -1231,6 +1233,7 @@ public class Main extends Canvas implements Runnable
         stateMessage.p2Ammo = game.getAmmo();
         stateMessage.p2Score = game.getScore();
         stateMessage.p2Kills = game.getKills();
+        stateMessage.p2Firing = game.isRemoteFiring();
 
         stateMessage.numEnemies = game.enemies != null ? game.enemies.size() : 0;
         stateMessage.gameTicks = game.time;

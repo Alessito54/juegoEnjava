@@ -15,6 +15,7 @@ public class Bitmap3D extends Bitmap
     private double[] depthBufferWall;
     private double xCam, yCam, zCam, rot, rSin, rCos, fov, xCenter, yCenter;
     private Bitmap remotePlayerSprite;
+    private Bitmap remotePlayerFireSprite;
 
     public Bitmap3D(int width, int height)
     {
@@ -23,6 +24,7 @@ public class Bitmap3D extends Bitmap
         depthBuffer = new double[width * height];
         depthBufferWall = new double[width];
         remotePlayerSprite = loadBitmap("image/jugador.png");
+        remotePlayerFireSprite = loadBitmap("image/jugadorDisparo.png");
     }
 
     public void render(Game game)
@@ -103,7 +105,8 @@ public class Bitmap3D extends Bitmap
 
         if (game.isMultiplayerEnabled() && game.getRemotePlayer() != null && remotePlayerSprite != null)
         {
-            renderEnemySprite(game.getRemotePlayer().x, game.getRemotePlayer().y, remotePlayerSprite, 0.56, 0.86);
+            Bitmap remoteSprite = game.isRemoteFiring() && remotePlayerFireSprite != null ? remotePlayerFireSprite : remotePlayerSprite;
+            renderEnemySprite(game.getRemotePlayer().x, game.getRemotePlayer().y, remoteSprite, 0.56, 0.86);
         }
 
         for (int i = 0; i < game.level.medkits.size(); i++)

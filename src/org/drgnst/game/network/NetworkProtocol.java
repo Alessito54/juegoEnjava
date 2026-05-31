@@ -94,10 +94,12 @@ public class NetworkProtocol
         // Player 1 state
         public double p1X, p1Y, p1Angle;
         public int p1Health, p1Ammo, p1Score, p1Kills;
+        public boolean p1Firing;
         
         // Player 2 state
         public double p2X, p2Y, p2Angle;
         public int p2Health, p2Ammo, p2Score, p2Kills;
+        public boolean p2Firing;
         
         // Global state
         public int numEnemies;

@@ -52,6 +52,11 @@ public class Weapon
         fireTimer = 6;
     }
 
+    public boolean isFiring()
+    {
+        return fireTimer > 0;
+    }
+
     public void setReloading(boolean reloading)
     {
         this.reloading = reloading;
