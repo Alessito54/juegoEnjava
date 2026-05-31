@@ -22,9 +22,9 @@ public class Weapon
 
     public Weapon()
     {
-        baseSprite = loadSprite("/home/alessandro/Java-3D-Rendering/image/weaponBASE.png");
-        fireSprite = loadSprite("/home/alessandro/Java-3D-Rendering/image/weaponDisparo.png");
-        reloadSprite = loadSprite("/home/alessandro/Java-3D-Rendering/image/recarga.png");
+        baseSprite = loadSprite("image/weaponBASE.png");
+        fireSprite = loadSprite("image/weaponDisparo.png");
+        reloadSprite = loadSprite("image/recarga.png");
     }
 
     public void update(double playerX, double playerY, boolean moving)
@@ -66,16 +66,20 @@ public class Weapon
 
     public void render(Bitmap screen)
     {
+        boolean firing = fireTimer > 0;
         Bitmap sprite;
         if (reloading && reloadSprite != null)
             sprite = reloadSprite;
-        else if (fireTimer > 0 && fireSprite != null)
+        else if (firing && fireSprite != null)
             sprite = fireSprite;
         else
             sprite = baseSprite;
 
         if (sprite == null)
+        {
+            drawFallbackWeapon(screen, firing, reloading);
             return;
+        }
 
         // Las imágenes son 1024x1024, las reducimos a un tamaño visible
         float displayWidth = 150;   // Aumentado para mayor visibilidad
@@ -93,20 +97,72 @@ public class Weapon
         final int VERTICAL_OFFSET = 40;
         int y0 = screen.height - spriteHeight + (int) bobbingY + VERTICAL_OFFSET;
 
-        if (fireTimer > 0)
+        if (firing)
         {
             x0 -= 4;
             y0 -= 5;
         }
 
         drawScaled(screen, sprite, x0, y0, scale);
+
+        if (firing)
+            drawMuzzleFlash(screen, x0 + spriteWidth - 10, y0 + spriteHeight / 3);
+        else if (reloading)
+            drawReloadGlow(screen, x0 + spriteWidth / 2, y0 + spriteHeight / 2);
+    }
+
+    private void drawFallbackWeapon(Bitmap screen, boolean firing, boolean reloading)
+    {
+        int w = 120;
+        int h = 48;
+        int x0 = screen.width - w - 18 + (int) bobbingX;
+        int y0 = screen.height - h - 28 + (int) bobbingY;
+
+        int body = reloading ? 0x7d5a22 : 0x3a3a44;
+        int accent = firing ? 0xffb000 : 0x9c9ca8;
+        fillRect(screen, x0, y0, w, h, body);
+        fillRect(screen, x0 + 10, y0 + 10, w - 24, h - 20, accent);
+
+        if (firing)
+            drawMuzzleFlash(screen, x0 + w - 8, y0 + h / 2);
+        if (reloading)
+            drawReloadGlow(screen, x0 + w / 2, y0 + h / 2);
+    }
+
+    private void drawMuzzleFlash(Bitmap screen, int cx, int cy)
+    {
+        int flashColor = 0xffd75a;
+        fillRect(screen, cx - 8, cy - 3, 18, 6, flashColor);
+        fillRect(screen, cx - 2, cy - 8, 6, 16, 0xfff0a0);
+    }
+
+    private void drawReloadGlow(Bitmap screen, int cx, int cy)
+    {
+        fillRect(screen, cx - 6, cy - 6, 12, 12, 0x4ecbff);
+    }
+
+    private void fillRect(Bitmap screen, int x, int y, int w, int h, int color)
+    {
+        for (int yy = 0; yy < h; yy++)
+        {
+            int py = y + yy;
+            if (py < 0 || py >= screen.height)
+                continue;
+            for (int xx = 0; xx < w; xx++)
+            {
+                int px = x + xx;
+                if (px < 0 || px >= screen.width)
+                    continue;
+                screen.pixels[px + py * screen.width] = color;
+            }
+        }
     }
 
     private Bitmap loadSprite(String path)
     {
         try
         {
-            BufferedImage image = ImageIO.read(new File(path));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage(path);
             if (image == null)
             {
                 System.err.println("✗ No se pudo cargar sprite (null): " + path);

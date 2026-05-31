@@ -67,6 +67,8 @@ public class Game
     private int ammo;
     private int reloadTimer;
     private int remoteReloadTimer;
+    private int localShotFlashTimer;
+    private int remoteShotFlashTimer;
     private int score;
     private int maxScore;
     private String currentPlayerName;
@@ -103,6 +105,8 @@ public class Game
         ammo = MAX_AMMO;
         reloadTimer = 0;
         remoteReloadTimer = 0;
+        localShotFlashTimer = 0;
+        remoteShotFlashTimer = 0;
         weapon.setReloading(false);
         score = 0;
         loadJumpscareImage();
@@ -154,6 +158,7 @@ public class Game
                 if (rspace && !remoteSpaceWasDown && remoteReloadTimer <= 0)
                 {
                     remoteFiring = true;
+                    remoteShotFlashTimer = 6;
                 }
                 else if (!rspace)
                 {
@@ -190,6 +195,7 @@ public class Game
         {
             weapon.fire();
             audioManager.playSoundOnce("sonidos/disparo.wav");
+            localShotFlashTimer = 6;
             shootEnemy();
             firingCooldown = 60; // 1 segundo de cooldown a 60 FPS
             ammo--;
@@ -203,6 +209,11 @@ public class Game
         // Reducir cooldown de disparo
         if (firingCooldown > 0)
             firingCooldown--;
+
+        if (localShotFlashTimer > 0)
+            localShotFlashTimer--;
+        if (remoteShotFlashTimer > 0)
+            remoteShotFlashTimer--;
 
         if (deathFlashTimer > 0)
             deathFlashTimer--;
@@ -706,6 +717,8 @@ public class Game
         remoteMoving = false;
         remoteSpaceWasDown = false;
         networkStateApplied = false;
+        localShotFlashTimer = 0;
+        remoteShotFlashTimer = 0;
         localRoleLabel = "JUGADOR 1 (SERVIDOR)";
         remoteRoleLabel = "JUGADOR 2 (CLIENTE)";
     }
@@ -737,6 +750,8 @@ public class Game
             player2.y = state.p1Y;
             player2.rot = state.p1Angle;
             remoteFiring = state.p1Firing;
+            if (state.p1Firing)
+                remoteShotFlashTimer = 6;
             remoteMoving = state.p1Moving;
             remoteReloading = state.p1Reloading;
             remoteReloadTimer = state.p1Reloading ? RELOAD_DURATION_FRAMES : 0;
@@ -776,6 +791,8 @@ public class Game
             player2.y = state.p2Y;
             player2.rot = state.p2Angle;
             remoteFiring = state.p2Firing;
+            if (state.p2Firing)
+                remoteShotFlashTimer = 6;
             remoteMoving = state.p2Moving;
             remoteReloading = state.p2Reloading;
             remoteReloadTimer = state.p2Reloading ? RELOAD_DURATION_FRAMES : 0;
@@ -784,12 +801,12 @@ public class Game
 
     public boolean isLocalFiring()
     {
-        return weapon != null && weapon.isFiring();
+        return (weapon != null && weapon.isFiring()) || localShotFlashTimer > 0;
     }
 
     public boolean isRemoteFiring()
     {
-        return remoteFiring;
+        return remoteFiring || remoteShotFlashTimer > 0;
     }
 
     public boolean isRemoteReloading()
@@ -805,6 +822,11 @@ public class Game
     public boolean isLocalReloading()
     {
         return reloadTimer > 0;
+    }
+
+    public boolean isLocalMoving()
+    {
+        return player != null && (Math.abs(player.xa) > 0.0001 || Math.abs(player.ya) > 0.0001);
     }
 
     public boolean isMultiplayerEnabled()
