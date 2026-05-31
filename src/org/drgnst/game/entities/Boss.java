@@ -74,7 +74,7 @@ public class Boss
 
         try
         {
-            BufferedImage image = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/boss.png"));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage("image/boss.png");
             if (image != null)
             {
                 Bitmap res = new Bitmap(image.getWidth(), image.getHeight());
@@ -90,7 +90,7 @@ public class Boss
 
         try
         {
-            BufferedImage image = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/bossAtack.png"));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage("image/bossAtack.png");
             if (image != null)
             {
                 Bitmap res = new Bitmap(image.getWidth(), image.getHeight());
@@ -106,7 +106,7 @@ public class Boss
 
         try
         {
-            BufferedImage image = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/bossMuerte.png"));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage("image/bossMuerte.png");
             if (image != null)
             {
                 Bitmap res = new Bitmap(image.getWidth(), image.getHeight());

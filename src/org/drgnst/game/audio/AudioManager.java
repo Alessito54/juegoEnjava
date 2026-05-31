@@ -3,6 +3,8 @@ package org.drgnst.game.audio;
 import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.BufferedInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,14 +24,12 @@ public class AudioManager
     {
         try
         {
-            File audioFile = new File(filePath);
-            if (!audioFile.exists())
+            AudioInputStream audioInputStream = openAudioStream(filePath);
+            if (audioInputStream == null)
             {
-                System.err.println("Archivo de audio no encontrado: " + filePath);
+                System.err.println("Archivo de audio no encontrado en FS ni en recursos: " + filePath);
                 return;
             }
-            
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(audioFile);
             musicClip = AudioSystem.getClip();
             musicClip.open(audioInputStream);
             musicClip.loop(Clip.LOOP_CONTINUOUSLY);  // Reproducir en bucle infinito
@@ -59,14 +59,12 @@ public class AudioManager
         new Thread(() -> {
             try
             {
-                File audioFile = new File(filePath);
-                if (!audioFile.exists())
+                AudioInputStream audioInputStream = openAudioStream(filePath);
+                if (audioInputStream == null)
                 {
-                    System.err.println("Archivo de audio no encontrado: " + filePath);
+                    System.err.println("Archivo de audio no encontrado en FS ni en recursos: " + filePath);
                     return;
                 }
-
-                AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(audioFile);
                 Clip clip = AudioSystem.getClip();
                 
                 synchronized (activeSoundClips)
@@ -110,6 +108,36 @@ public class AudioManager
                 System.err.println("Línea de audio no disponible: " + e.getMessage());
             }
         }).start();
+    }
+
+    /**
+     * Intenta abrir un AudioInputStream desde el filesystem o desde el classpath.
+     * Devuelve null si no se encuentra.
+     */
+    private AudioInputStream openAudioStream(String path) throws UnsupportedAudioFileException, IOException
+    {
+        // Primer intento: archivo en disco
+        File audioFile = new File(path);
+        if (audioFile.exists())
+        {
+            return AudioSystem.getAudioInputStream(audioFile);
+        }
+
+        // Segundo intento: recurso en classpath (dentro del JAR)
+        InputStream is = AudioManager.class.getResourceAsStream(path.startsWith("/") ? path : "/" + path);
+        if (is == null)
+        {
+            // try without leading slash
+            is = AudioManager.class.getResourceAsStream(path);
+        }
+
+        if (is == null)
+        {
+            return null;
+        }
+
+        BufferedInputStream bis = new BufferedInputStream(is);
+        return AudioSystem.getAudioInputStream(bis);
     }
     
     /**

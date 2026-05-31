@@ -1,7 +1,6 @@
 package org.drgnst.game.gfx;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.util.Random;
 
@@ -29,7 +28,7 @@ public class Screen extends Bitmap
             test.pixels[i] = r.nextInt();
 
         perspectiveVision = new Bitmap3D(width, height);
-        bulletIcon = loadBitmap("/home/alessandro/Java-3D-Rendering/image/bala.png");
+        bulletIcon = loadBitmap("image/bala.png");
     }
 
     public void render(Game game)
@@ -401,7 +400,7 @@ public class Screen extends Bitmap
     {
         try
         {
-            BufferedImage image = ImageIO.read(new File(path));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage(path);
             if (image == null)
                 return null;
 

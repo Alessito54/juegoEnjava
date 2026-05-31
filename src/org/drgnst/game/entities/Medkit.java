@@ -60,7 +60,7 @@ public class Medkit
 
         try
         {
-            BufferedImage image = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/botiquin.png"));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage("image/botiquin.png");
             if (image == null)
                 return;
 

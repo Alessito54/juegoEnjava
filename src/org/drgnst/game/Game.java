@@ -39,10 +39,10 @@ public class Game
     private static final int SCORE_PER_KILL = 100;
     private static final int SCORE_PER_BOSS_KILL = 1000;
     private static final int BOSS_TRIGGER_KILLS = 5;
-    private static final String NORMAL_BACKGROUND_MUSIC = "/home/alessandro/Java-3D-Rendering/DoomEternalOST.wav";
-    private static final String BOSS_BACKGROUND_MUSIC = "/home/alessandro/Java-3D-Rendering/sonidos/bossSound.wav";
-    private static final Path SCORE_FILE = Paths.get("/home/alessandro/Java-3D-Rendering/res/score.json");
-    private static final Path PLAYER_FILE = Paths.get("/home/alessandro/Java-3D-Rendering/res/players.json");
+    private static final String NORMAL_BACKGROUND_MUSIC = "DoomEternalOST.wav";
+    private static final String BOSS_BACKGROUND_MUSIC = "sonidos/bossSound.wav";
+    private static final Path SCORE_FILE = Paths.get("res/score.json");
+    private static final Path PLAYER_FILE = Paths.get("res/players.json");
     private static final String DEFAULT_PLAYER_NAME = "Jugador";
 
     public Level level;
@@ -137,7 +137,7 @@ public class Game
         if (space && !spaceWasDown && firingCooldown <= 0 && reloadTimer <= 0 && ammo > 0)
         {
             weapon.fire();
-            audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/disparo.wav");
+            audioManager.playSoundOnce("sonidos/disparo.wav");
             shootEnemy();
             firingCooldown = 60; // 1 segundo de cooldown a 60 FPS
             ammo--;
@@ -344,7 +344,7 @@ public class Game
 
         reloadTimer = RELOAD_DURATION_FRAMES;
         weapon.setReloading(true);
-        audioManager.playSoundOnce("/home/alessandro/Java-3D-Rendering/sonidos/recarga.wav");
+        audioManager.playSoundOnce("sonidos/recarga.wav");
         System.out.println("↻ Recargando arma...");
     }
 
@@ -567,7 +567,7 @@ public class Game
     {
         try
         {
-            BufferedImage img = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/jumpscare.png"));
+            BufferedImage img = org.drgnst.game.ResourceLoader.loadImage("image/jumpscare.png");
             jumpscareImage = new Bitmap(img.getWidth(), img.getHeight());
             for (int y = 0; y < img.getHeight(); y++)
             {

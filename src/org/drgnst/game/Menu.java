@@ -37,7 +37,7 @@ public class Menu
     {
         try
         {
-            BufferedImage image = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/botonInicio.png"));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage("image/botonInicio.png");
             if (image == null)
             {
                 System.err.println("✗ No se pudo cargar botonInicio.png");
@@ -60,7 +60,7 @@ public class Menu
     {
         try
         {
-            BufferedImage image = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/menu.png"));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage("image/menu.png");
             if (image == null)
             {
                 System.err.println("✗ No se pudo cargar menu.png");

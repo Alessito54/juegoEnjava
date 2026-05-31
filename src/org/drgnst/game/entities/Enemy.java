@@ -75,7 +75,7 @@ public class Enemy
 
         try
         {
-            BufferedImage image = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/enemigo.png"));
+            BufferedImage image = org.drgnst.game.ResourceLoader.loadImage("image/enemigo.png");
             if (image == null)
                 return;
 
@@ -92,7 +92,7 @@ public class Enemy
         // Cargar sprite de disparo (si existe)
         try
         {
-            BufferedImage image2 = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/enemigoDisparo.png"));
+            BufferedImage image2 = org.drgnst.game.ResourceLoader.loadImage("image/enemigoDisparo.png");
             if (image2 != null)
             {
                 Bitmap res2 = new Bitmap(image2.getWidth(), image2.getHeight());
@@ -109,7 +109,7 @@ public class Enemy
         // Cargar sprite de muerte
         try
         {
-            BufferedImage image3 = ImageIO.read(new File("/home/alessandro/Java-3D-Rendering/image/MUERTE.png"));
+            BufferedImage image3 = org.drgnst.game.ResourceLoader.loadImage("image/MUERTE.png");
             if (image3 != null)
             {
                 Bitmap res3 = new Bitmap(image3.getWidth(), image3.getHeight());
