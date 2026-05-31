@@ -1,9 +1,7 @@
 package org.drgnst.game.Level;
 
 /**
- * @author Sopiro
- * <p>
- * 2015. 12. 14. ¿ÀÈÄ 5:31:39
+ * Solid block type
  */
 public class SolidBlock extends Block
 {

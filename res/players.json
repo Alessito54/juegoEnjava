@@ -1,0 +1,7 @@
+{
+  "currentPlayer": "Jugador",
+  "players": [
+    {"name": "Jugador", "maxScore": 2200},
+    {"name": "Alessandro", "maxScore": 100}
+  ]
+}
