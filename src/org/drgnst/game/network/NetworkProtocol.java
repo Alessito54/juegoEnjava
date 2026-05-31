@@ -149,6 +149,9 @@ public class NetworkProtocol
     {
         private static final long serialVersionUID = 1L;
         public boolean[] keys;  // Key states
+        public double x, y, rot;
+        public double xa, ya, ra;
+        public boolean firing;
 
         public PlayerInputMessage()
         {

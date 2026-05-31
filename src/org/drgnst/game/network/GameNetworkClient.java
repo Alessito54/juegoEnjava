@@ -233,6 +233,21 @@ public class GameNetworkClient
         send(inputMsg);
     }
 
+    public void sendInput(boolean[] keys, double x, double y, double rot, double xa, double ya, double ra, boolean firing)
+    {
+        NetworkProtocol.PlayerInputMessage inputMsg = new NetworkProtocol.PlayerInputMessage();
+        inputMsg.keys = keys;
+        inputMsg.clientId = clientId;
+        inputMsg.x = x;
+        inputMsg.y = y;
+        inputMsg.rot = rot;
+        inputMsg.xa = xa;
+        inputMsg.ya = ya;
+        inputMsg.ra = ra;
+        inputMsg.firing = firing;
+        send(inputMsg);
+    }
+
     /**
      * Disconnect from server.
      */

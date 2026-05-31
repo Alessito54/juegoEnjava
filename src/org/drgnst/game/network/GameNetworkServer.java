@@ -22,6 +22,7 @@ public class GameNetworkServer
     private Thread discoveryThread;
     private ServerStateListener stateListener;
     private java.util.function.BiConsumer<String, boolean[]> playerInputListener;
+    private java.util.function.Consumer<NetworkProtocol.PlayerInputMessage> playerStateListener;
 
     public interface ServerStateListener
     {
@@ -178,6 +179,11 @@ public class GameNetworkServer
         this.playerInputListener = listener;
     }
 
+    public void setPlayerStateListener(java.util.function.Consumer<NetworkProtocol.PlayerInputMessage> listener)
+    {
+        this.playerStateListener = listener;
+    }
+
     /**
      * Remove a client from the server.
      */
@@ -308,6 +314,8 @@ public class GameNetworkServer
                             msg.clientId = clientId;
                             if (server.playerInputListener != null && msg.keys != null)
                                 server.playerInputListener.accept(clientId, msg.keys);
+                            if (server.playerStateListener != null)
+                                server.playerStateListener.accept(msg);
                         }
                     }
                     catch (EOFException e)

@@ -388,7 +388,12 @@ public class Main extends Canvas implements Runnable
             else if (networkClient != null && networkClient.isConnected())
             {
                 game.update(inputHandler.keys);
-                networkClient.sendInput(inputHandler.keys);
+                networkClient.sendInput(
+                    inputHandler.keys,
+                    game.player.x, game.player.y, game.player.rot,
+                    game.player.xa, game.player.ya, game.player.ra,
+                    game.isLocalFiring()
+                );
             }
             else
             {
@@ -1114,7 +1119,13 @@ public class Main extends Canvas implements Runnable
                 System.out.println("Client disconnected: " + clientId);
                 isServerReady = false;
             });
-            networkServer.setPlayerInputListener((clientId, keys) -> game.setRemoteInput(keys));
+            networkServer.setPlayerStateListener((inputMsg) -> {
+                if (inputMsg != null)
+                {
+                    game.setRemoteInput(inputMsg.keys);
+                    game.setRemotePlayerTransform(inputMsg.x, inputMsg.y, inputMsg.rot, inputMsg.xa, inputMsg.ya, inputMsg.ra);
+                }
+            });
             networkServer.start();
             state = GameState.NETWORK_SERVER;
             System.out.println("Server started");
@@ -1276,6 +1287,15 @@ public class Main extends Canvas implements Runnable
             bossState.deathTimer = boss.getDeathTimer();
             bossState.dying = boss.isDying();
             stateMessage.bossState = bossState;
+        }
+
+        // Aplicar el estado del jugador cliente al jugador remoto del servidor cuando corresponde
+        if (networkServer != null && networkClient == null && game.getRemotePlayer() != null)
+        {
+            // Mantener el estado del jugador remoto tal como lo controla el input recibido
+            stateMessage.p2X = game.getRemotePlayer().x;
+            stateMessage.p2Y = game.getRemotePlayer().y;
+            stateMessage.p2Angle = game.getRemotePlayer().rot;
         }
         return stateMessage;
     }

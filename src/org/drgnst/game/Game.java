@@ -733,6 +733,19 @@ public class Game
         remoteKeys = copy;
     }
 
+    public void setRemotePlayerTransform(double x, double y, double rot, double xa, double ya, double ra)
+    {
+        if (player2 == null)
+            player2 = new Player(this);
+
+        player2.x = x;
+        player2.y = y;
+        player2.rot = rot;
+        player2.xa = xa;
+        player2.ya = ya;
+        player2.ra = ra;
+    }
+
     public void applyGameStateFromServer(NetworkProtocol.GameStateMessage state)
     {
         if (state == null)
