@@ -9,7 +9,9 @@ import java.awt.image.DataBufferInt;
 import java.io.File;
 import java.io.IOException;
 import java.awt.event.KeyEvent;
+import java.awt.Graphics2D;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.imageio.ImageIO;
@@ -18,6 +20,10 @@ import javax.swing.JFrame;
 
 import org.drgnst.game.gfx.Screen;
 import org.drgnst.game.network.*;
+import org.drgnst.game.profile.Profile;
+import org.drgnst.game.profile.ProfileManager;
+import org.drgnst.game.profile.ProfileMenuUI;
+import org.drgnst.game.profile.ProfilePDFExporter;
 
 public class Main extends Canvas implements Runnable
 {
@@ -46,6 +52,9 @@ public class Main extends Canvas implements Runnable
     private enum GameState
     {
         MENU,
+        PROFILE_SELECTION,
+        PROFILE_CREATION,
+        PROFILE_INFO,
         CREATE_PLAYER,
         SELECT_PLAYER,
         MULTIPLAYER_MENU,
@@ -84,6 +93,11 @@ public class Main extends Canvas implements Runnable
     private String pendingPlayerName;
     private List<String> playerList;
     private int selectedPlayerIndex;
+    
+    // Profile Management
+    private ProfileManager profileManager;
+    private ProfileMenuUI profileMenuUI;
+    private boolean dWasDown;
     
     // Networking
     private GameNetworkServer networkServer;
@@ -149,6 +163,11 @@ public class Main extends Canvas implements Runnable
         if (hostFrame != null)
             scoreWindow.pinNear(hostFrame);
         scoreWindow.setHidden();
+        
+        // Inicializar ProfileManager
+        profileManager = new ProfileManager();
+        profileMenuUI = new ProfileMenuUI(profileManager);
+        
         state = GameState.MENU;
         refreshPlayerList();
         spaceWasDown = false;
@@ -156,6 +175,7 @@ public class Main extends Canvas implements Runnable
         enterWasDown = false;
         backspaceWasDown = false;
         cWasDown = false;
+        dWasDown = false;
         selectWasDown = false;
         leftSelectWasDown = false;
         rightSelectWasDown = false;
@@ -237,16 +257,24 @@ public class Main extends Canvas implements Runnable
 
         Graphics g = bs.getDrawGraphics();
 
-        if (state == GameState.MENU || state == GameState.CREATE_PLAYER || state == GameState.SELECT_PLAYER || 
+        if (state == GameState.MENU || state == GameState.PROFILE_SELECTION || state == GameState.PROFILE_CREATION || state == GameState.PROFILE_INFO ||
+            state == GameState.CREATE_PLAYER || state == GameState.SELECT_PLAYER || 
             state == GameState.MULTIPLAYER_MENU || state == GameState.NETWORK_SERVER || state == GameState.NETWORK_CLIENT || 
             state == GameState.PAUSED)
         {
-            if (state == GameState.MENU || state == GameState.CREATE_PLAYER || state == GameState.SELECT_PLAYER ||
+            if (state == GameState.MENU || state == GameState.PROFILE_SELECTION || state == GameState.PROFILE_CREATION || state == GameState.PROFILE_INFO ||
+                state == GameState.CREATE_PLAYER || state == GameState.SELECT_PLAYER ||
                 state == GameState.MULTIPLAYER_MENU || state == GameState.NETWORK_SERVER || state == GameState.NETWORK_CLIENT)
             {
                 menu.renderToGraphics(g, WINDOW_WIDTH, WINDOW_HEIGHT);
                 if (state == GameState.MENU)
                     renderMainMenuOverlay(g);
+                else if (state == GameState.PROFILE_SELECTION)
+                    renderProfileSelectionOverlay(g);
+                else if (state == GameState.PROFILE_CREATION)
+                    renderProfileCreationOverlay(g);
+                else if (state == GameState.PROFILE_INFO)
+                    renderProfileInfoOverlay(g);
                 else if (state == GameState.CREATE_PLAYER)
                     renderCreatePlayerOverlay(g);
                 else if (state == GameState.SELECT_PLAYER)
@@ -315,6 +343,8 @@ public class Main extends Canvas implements Runnable
             boolean spaceDown = inputHandler.keys[KeyEvent.VK_SPACE];
             boolean cDown = inputHandler.keys[KeyEvent.VK_C];
             boolean pDown = inputHandler.keys[KeyEvent.VK_P];
+            boolean fDown = inputHandler.keys[KeyEvent.VK_F];
+            
             if (spaceDown && !spaceWasDown)
                 startGame();
             if (cDown && !cWasDown)
@@ -326,9 +356,15 @@ public class Main extends Canvas implements Runnable
             {
                 openPlayerSelector();
             }
+            if (fDown && !menuWasDown)
+            {
+                state = GameState.PROFILE_SELECTION;
+                profileMenuUI.setSelectedIndex(0);
+            }
             spaceWasDown = spaceDown;
             cWasDown = cDown;
             selectWasDown = pDown;
+            menuWasDown = fDown;
 
             if (inputHandler.consumeMouseClick())
             {
@@ -350,9 +386,26 @@ public class Main extends Canvas implements Runnable
                 {
                     state = GameState.MULTIPLAYER_MENU;
                 }
+                else if (clicked == Menu.BUTTON_START + 4)
+                {
+                    state = GameState.PROFILE_SELECTION;
+                    profileMenuUI.setSelectedIndex(0);
+                }
             }
 
             screenMenu.update();
+        }
+        else if (state == GameState.PROFILE_SELECTION)
+        {
+            handleProfileSelectionInput();
+        }
+        else if (state == GameState.PROFILE_CREATION)
+        {
+            handleProfileCreationInput();
+        }
+        else if (state == GameState.PROFILE_INFO)
+        {
+            handleProfileInfoInput();
         }
         else if (state == GameState.CREATE_PLAYER)
         {
@@ -709,7 +762,7 @@ public class Main extends Canvas implements Runnable
     private void renderCenteredMenuCard(Graphics g)
     {
         int w = 820;
-        int h = 480;
+        int h = 550;
         int x = (WINDOW_WIDTH - w) / 2;
         int y = (WINDOW_HEIGHT - h) / 2;
 
@@ -730,6 +783,7 @@ public class Main extends Canvas implements Runnable
         drawMenuButton(g, x + 24, y + 210 + BUTTON_HEIGHT + BUTTON_GAP, BUTTON_WIDTH, BUTTON_HEIGHT, "CREAR JUGADOR", false);
         drawMenuButton(g, x + 24, y + 210 + (BUTTON_HEIGHT + BUTTON_GAP) * 2, BUTTON_WIDTH, BUTTON_HEIGHT, "ELEGIR JUGADOR", false);
         drawMenuButton(g, x + 24, y + 210 + (BUTTON_HEIGHT + BUTTON_GAP) * 3, BUTTON_WIDTH, BUTTON_HEIGHT, "MULTIJUGADOR", false);
+        drawMenuButton(g, x + 24, y + 210 + (BUTTON_HEIGHT + BUTTON_GAP) * 4, BUTTON_WIDTH, BUTTON_HEIGHT, "PERFILES", false);
     }
 
     private void drawMenuButton(Graphics g, int x, int y, int w, int h, String text, boolean primary)
@@ -750,7 +804,7 @@ public class Main extends Canvas implements Runnable
     private int checkMainMenuClick(int mouseX, int mouseY)
     {
         int w = 820;
-        int h = 480;
+        int h = 550;
         int x = (WINDOW_WIDTH - w) / 2;
         int y = (WINDOW_HEIGHT - h) / 2;
 
@@ -765,6 +819,8 @@ public class Main extends Canvas implements Runnable
             return Menu.BUTTON_START + 2;
         if (isInside(mouseX, mouseY, bx, by + (BUTTON_HEIGHT + BUTTON_GAP) * 3, BUTTON_WIDTH, BUTTON_HEIGHT))
             return Menu.BUTTON_START + 3;
+        if (isInside(mouseX, mouseY, bx, by + (BUTTON_HEIGHT + BUTTON_GAP) * 4, BUTTON_WIDTH, BUTTON_HEIGHT))
+            return Menu.BUTTON_START + 4;
 
         return Menu.BUTTON_NONE;
     }
@@ -1315,5 +1371,314 @@ public class Main extends Canvas implements Runnable
         g.setColor(java.awt.Color.WHITE);
         g.drawRoundRect(x, y, w, h, 14, 14);
         g.drawString(text, x + 12, y + 23);
+    }
+
+    // ==================== PROFILE MANAGEMENT METHODS ====================
+
+    private void renderProfileSelectionOverlay(Graphics g)
+    {
+        Graphics2D g2d = (Graphics2D) g;
+        int w = 900;
+        int h = 600;
+        int x = (WINDOW_WIDTH - w) / 2;
+        int y = (WINDOW_HEIGHT - h) / 2;
+
+        g2d.setColor(new java.awt.Color(26, 26, 46, 240));
+        g2d.fillRoundRect(x, y, w, h, 20, 20);
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.drawRoundRect(x, y, w, h, 20, 20);
+
+        g2d.setFont(g2d.getFont().deriveFont(32f).deriveFont(java.awt.Font.BOLD));
+        g2d.setColor(new java.awt.Color(0, 255, 0));
+        g2d.drawString("GESTIÓN DE PERFILES", x + 30, y + 50);
+
+        List<Profile> profiles = new ArrayList<>(profileManager.getAllProfiles());
+        Collections.sort(profiles);
+
+        if (profiles.isEmpty())
+        {
+            g2d.setFont(g2d.getFont().deriveFont(20f));
+            g2d.setColor(java.awt.Color.WHITE);
+            g2d.drawString("No hay perfiles. Presiona N para crear uno", x + 50, y + h / 2 - 40);
+        }
+        else
+        {
+            int startY = y + 80;
+            int itemHeight = 70;
+            int maxVisible = (h - 180) / (itemHeight + 5);
+
+            for (int i = 0; i < Math.min(maxVisible, profiles.size()); i++)
+            {
+                Profile profile = profiles.get(i);
+                int itemY = startY + i * (itemHeight + 5);
+                boolean selected = i == profileMenuUI.getSelectedIndex();
+
+                java.awt.Color bgColor = selected ? new java.awt.Color(15, 52, 96, 200) : new java.awt.Color(10, 30, 60, 180);
+                g2d.setColor(bgColor);
+                g2d.fillRoundRect(x + 20, itemY, w - 40, itemHeight, 10, 10);
+
+                java.awt.Color borderColor = selected ? new java.awt.Color(0, 255, 0) : new java.awt.Color(40, 80, 120);
+                g2d.setColor(borderColor);
+                g2d.setStroke(new java.awt.BasicStroke(selected ? 3f : 1f));
+                g2d.drawRoundRect(x + 20, itemY, w - 40, itemHeight, 10, 10);
+
+                g2d.setFont(g2d.getFont().deriveFont(18f).deriveFont(java.awt.Font.BOLD));
+                g2d.setColor(selected ? new java.awt.Color(255, 255, 0) : java.awt.Color.WHITE);
+                g2d.drawString(profile.getName(), x + 40, itemY + 25);
+
+                g2d.setFont(g2d.getFont().deriveFont(13f));
+                g2d.setColor(new java.awt.Color(200, 200, 200));
+                g2d.drawString("Score: " + profile.getMaxScore() + " | Juegos: " + profile.getTotalGamesPlayed() + 
+                             " | Enemigos: " + profile.getTotalEnemiesKilled(), x + 40, itemY + 48);
+            }
+        }
+
+        int buttonY = y + h - 70;
+        g2d.setFont(g2d.getFont().deriveFont(14f));
+        g2d.setColor(new java.awt.Color(0, 200, 0));
+        g2d.drawString("↑/↓ Navegar | ENTER Seleccionar | N Nueva | D Descargar | ESC Atrás", x + 30, buttonY);
+    }
+
+    private void renderProfileCreationOverlay(Graphics g)
+    {
+        Graphics2D g2d = (Graphics2D) g;
+        int w = 500;
+        int h = 300;
+        int x = (WINDOW_WIDTH - w) / 2;
+        int y = (WINDOW_HEIGHT - h) / 2;
+
+        g2d.setColor(new java.awt.Color(26, 26, 46, 240));
+        g2d.fillRoundRect(x, y, w, h, 20, 20);
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.drawRoundRect(x, y, w, h, 20, 20);
+
+        g2d.setFont(g2d.getFont().deriveFont(28f).deriveFont(java.awt.Font.BOLD));
+        g2d.setColor(new java.awt.Color(0, 255, 0));
+        g2d.drawString("CREAR PERFIL", x + 50, y + 50);
+
+        g2d.setFont(g2d.getFont().deriveFont(16f));
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.drawString("Nombre del perfil:", x + 30, y + 110);
+
+        // Input box
+        int boxX = x + 30;
+        int boxY = y + 135;
+        int boxW = w - 60;
+        int boxH = 40;
+
+        g2d.setColor(new java.awt.Color(10, 30, 60, 180));
+        g2d.fillRoundRect(boxX, boxY, boxW, boxH, 8, 8);
+        g2d.setColor(new java.awt.Color(0, 200, 0));
+        g2d.setStroke(new java.awt.BasicStroke(2f));
+        g2d.drawRoundRect(boxX, boxY, boxW, boxH, 8, 8);
+
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.drawString(profileMenuUI.getInputText() + "_", boxX + 15, boxY + 28);
+
+        g2d.setFont(g2d.getFont().deriveFont(13f));
+        g2d.setColor(new java.awt.Color(200, 200, 200));
+        g2d.drawString("ENTER Crear | ESC Cancelar | MAX 20 caracteres", x + 30, y + h - 30);
+    }
+
+    private void renderProfileInfoOverlay(Graphics g)
+    {
+        Graphics2D g2d = (Graphics2D) g;
+        Profile profile = profileManager.getCurrentProfile();
+        if (profile == null)
+        {
+            renderNoProfileOverlay(g);
+            return;
+        }
+
+        int w = 700;
+        int h = 500;
+        int x = (WINDOW_WIDTH - w) / 2;
+        int y = (WINDOW_HEIGHT - h) / 2;
+
+        g2d.setColor(new java.awt.Color(26, 26, 46, 240));
+        g2d.fillRoundRect(x, y, w, h, 20, 20);
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.drawRoundRect(x, y, w, h, 20, 20);
+
+        g2d.setFont(g2d.getFont().deriveFont(28f).deriveFont(java.awt.Font.BOLD));
+        g2d.setColor(new java.awt.Color(0, 255, 0));
+        g2d.drawString("ESTADÍSTICAS DE: " + profile.getName(), x + 30, y + 50);
+
+        int infoX = x + 50;
+        int infoY = y + 100;
+        int lineHeight = 35;
+
+        g2d.setFont(g2d.getFont().deriveFont(16f));
+        g2d.setColor(java.awt.Color.WHITE);
+
+        g2d.drawString("Puntuación Máxima: " + profile.getMaxScore(), infoX, infoY);
+        infoY += lineHeight;
+        g2d.drawString("Juegos Jugados: " + profile.getTotalGamesPlayed(), infoX, infoY);
+        infoY += lineHeight;
+        g2d.drawString("Enemigos Eliminados: " + profile.getTotalEnemiesKilled(), infoX, infoY);
+        infoY += lineHeight;
+        g2d.drawString("Jefes Derrotados: " + profile.getTotalBossesDefeated(), infoX, infoY);
+        infoY += lineHeight;
+        g2d.drawString("Tiempo de Juego: " + String.format("%.1f", profile.getPlayTimeHours()) + " horas", infoX, infoY);
+        infoY += lineHeight;
+        g2d.drawString("Perfil Creado: " + profile.getFormattedCreatedDate(), infoX, infoY);
+        infoY += lineHeight;
+        g2d.drawString("Último Juego: " + profile.getFormattedLastPlayedDate(), infoX, infoY);
+
+        g2d.setFont(g2d.getFont().deriveFont(13f));
+        g2d.setColor(new java.awt.Color(0, 200, 0));
+        g2d.drawString("D Descargar | ENTER Jugar | ESC Atrás", x + 30, y + h - 30);
+    }
+
+    private void renderNoProfileOverlay(Graphics g)
+    {
+        Graphics2D g2d = (Graphics2D) g;
+        int w = 400;
+        int h = 200;
+        int x = (WINDOW_WIDTH - w) / 2;
+        int y = (WINDOW_HEIGHT - h) / 2;
+
+        g2d.setColor(new java.awt.Color(26, 26, 46, 240));
+        g2d.fillRoundRect(x, y, w, h, 20, 20);
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.drawRoundRect(x, y, w, h, 20, 20);
+
+        g2d.setFont(g2d.getFont().deriveFont(20f));
+        g2d.setColor(java.awt.Color.WHITE);
+        g2d.drawString("No hay perfil seleccionado", x + 40, y + h / 2 - 20);
+        g2d.drawString("ESC para volver", x + 100, y + h / 2 + 30);
+    }
+
+    private void handleProfileSelectionInput()
+    {
+        boolean upDown = inputHandler.keys[KeyEvent.VK_UP] || inputHandler.keys[KeyEvent.VK_W];
+        boolean downDown = inputHandler.keys[KeyEvent.VK_DOWN] || inputHandler.keys[KeyEvent.VK_S];
+        boolean enterDown = inputHandler.keys[KeyEvent.VK_ENTER];
+        boolean escapeDown = inputHandler.keys[KeyEvent.VK_ESCAPE];
+        boolean nDown = inputHandler.keys[KeyEvent.VK_N];
+        boolean dDown = inputHandler.keys[KeyEvent.VK_D];
+
+        List<Profile> profiles = new ArrayList<>(profileManager.getAllProfiles());
+        Collections.sort(profiles);
+
+        if (upDown && !leftSelectWasDown && profileMenuUI.getSelectedIndex() > 0)
+        {
+            profileMenuUI.setSelectedIndex(profileMenuUI.getSelectedIndex() - 1);
+        }
+        if (downDown && !rightSelectWasDown && profileMenuUI.getSelectedIndex() < profiles.size() - 1)
+        {
+            profileMenuUI.setSelectedIndex(profileMenuUI.getSelectedIndex() + 1);
+        }
+
+        if (enterDown && !enterWasDown && !profiles.isEmpty())
+        {
+            Profile selected = profiles.get(profileMenuUI.getSelectedIndex());
+            profileManager.selectProfile(selected.getName());
+            state = GameState.PROFILE_INFO;
+        }
+
+        if (nDown && !cWasDown)
+        {
+            profileMenuUI.setInputText("");
+            state = GameState.PROFILE_CREATION;
+        }
+
+        if (dDown && !dWasDown)
+        {
+            ProfilePDFExporter.exportAllProfilesToPDF(profileManager);
+        }
+
+        if (escapeDown && !escapeWasDown)
+        {
+            state = GameState.MENU;
+            profileMenuUI.setSelectedIndex(0);
+        }
+
+        leftSelectWasDown = upDown;
+        rightSelectWasDown = downDown;
+        enterWasDown = enterDown;
+        escapeWasDown = escapeDown;
+        cWasDown = nDown;
+        dWasDown = dDown;
+    }
+
+    private void handleProfileCreationInput()
+    {
+        boolean enterDown = inputHandler.keys[KeyEvent.VK_ENTER];
+        boolean escapeDown = inputHandler.keys[KeyEvent.VK_ESCAPE];
+        boolean backspaceDown = inputHandler.keys[KeyEvent.VK_BACK_SPACE];
+
+        // Procesar caracteres alfanuméricos
+        for (int i = KeyEvent.VK_A; i <= KeyEvent.VK_Z; i++)
+        {
+            if (inputHandler.keys[i] && profileMenuUI.getInputText().length() < 20)
+            {
+                profileMenuUI.addInputCharacter((char) ('a' + (i - KeyEvent.VK_A)));
+                break;
+            }
+        }
+
+        if (inputHandler.keys[KeyEvent.VK_SPACE] && profileMenuUI.getInputText().length() < 20)
+        {
+            profileMenuUI.addInputCharacter(' ');
+        }
+
+        if (backspaceDown && !backspaceWasDown)
+        {
+            profileMenuUI.removeLastInputCharacter();
+        }
+
+        if (enterDown && !enterWasDown && !profileMenuUI.getInputText().isEmpty())
+        {
+            String profileName = profileMenuUI.getInputText().trim();
+            if (!profileName.isEmpty())
+            {
+                profileManager.createProfile(profileName);
+                state = GameState.PROFILE_SELECTION;
+                profileMenuUI.setSelectedIndex(0);
+            }
+        }
+
+        if (escapeDown && !escapeWasDown)
+        {
+            state = GameState.PROFILE_SELECTION;
+            profileMenuUI.setInputText("");
+        }
+
+        enterWasDown = enterDown;
+        escapeWasDown = escapeDown;
+        backspaceWasDown = backspaceDown;
+    }
+
+    private void handleProfileInfoInput()
+    {
+        boolean enterDown = inputHandler.keys[KeyEvent.VK_ENTER];
+        boolean escapeDown = inputHandler.keys[KeyEvent.VK_ESCAPE];
+        boolean dDown = inputHandler.keys[KeyEvent.VK_D];
+
+        if (enterDown && !enterWasDown)
+        {
+            if (profileManager.getCurrentProfile() != null)
+            {
+                startGame();
+            }
+        }
+
+        if (dDown && !dWasDown)
+        {
+            if (profileManager.getCurrentProfile() != null)
+            {
+                ProfilePDFExporter.exportSingleProfileToPDF(profileManager.getCurrentProfile());
+            }
+        }
+
+        if (escapeDown && !escapeWasDown)
+        {
+            state = GameState.PROFILE_SELECTION;
+        }
+
+        enterWasDown = enterDown;
+        escapeWasDown = escapeDown;
+        dWasDown = dDown;
     }
 }
