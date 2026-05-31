@@ -43,12 +43,6 @@ public class Screen extends Bitmap
         // Renderizar el arma
         game.weapon.render(this);
 
-        // Fallback visual extra si por cualquier motivo el arma no pinta sprite
-        if (game.weapon == null)
-        {
-            fillRect(width - 180, height - 80, 150, 36, 0x222233);
-        }
-
         // Jumpscare a pantalla completa cuando muere
         if (game.getJumpscareTimer() > 0 && game.getJumpscareImage() != null)
         {

@@ -49,7 +49,7 @@ public class Weapon
 
     public void fire()
     {
-        fireTimer = 6;
+        fireTimer = 10;
     }
 
     public boolean isFiring()
@@ -109,6 +109,9 @@ public class Weapon
             drawMuzzleFlash(screen, x0 + spriteWidth - 10, y0 + spriteHeight / 3);
         else if (reloading)
             drawReloadGlow(screen, x0 + spriteWidth / 2, y0 + spriteHeight / 2);
+
+        // Refuerzo visual para que el arma siempre sea visible en cualquier cliente/host
+        drawWeaponFrame(screen, x0, y0, spriteWidth, spriteHeight, firing, reloading);
     }
 
     private void drawFallbackWeapon(Bitmap screen, boolean firing, boolean reloading)
@@ -139,6 +142,21 @@ public class Weapon
     private void drawReloadGlow(Bitmap screen, int cx, int cy)
     {
         fillRect(screen, cx - 6, cy - 6, 12, 12, 0x4ecbff);
+    }
+
+    private void drawWeaponFrame(Bitmap screen, int x, int y, int w, int h, boolean firing, boolean reloading)
+    {
+        int outline = reloading ? 0x4ecbff : (firing ? 0xffd75a : 0x2a2a32);
+        int inner = reloading ? 0x15465a : (firing ? 0x7f5a00 : 0x454553);
+
+        // marco principal
+        fillRect(screen, x + w - 92, y + h - 52, 74, 22, outline);
+        fillRect(screen, x + w - 84, y + h - 46, 54, 10, inner);
+        // cañón
+        fillRect(screen, x + w - 20, y + h - 48, 18, 6, outline);
+        fillRect(screen, x + w - 16, y + h - 46, 10, 2, inner);
+        // empuñadura
+        fillRect(screen, x + w - 70, y + h - 34, 12, 20, inner);
     }
 
     private void fillRect(Bitmap screen, int x, int y, int w, int h, int color)
